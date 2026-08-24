@@ -24,6 +24,7 @@ import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 
 /**
  * <p>Add the JVM parameter to connect to the dashboard:</p>
@@ -32,6 +33,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @author kaizi2009
  */
 @SpringBootApplication
+@EnableAspectJAutoProxy(exposeProxy = true, proxyTargetClass = true)
 public class WebMvcDemoApplication {
 
     public static void main(String[] args) {

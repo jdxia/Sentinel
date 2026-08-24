@@ -20,7 +20,9 @@ import java.util.concurrent.TimeUnit;
 
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
+import jakarta.annotation.Resource;
 import org.springframework.aop.framework.AopContext;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,11 +38,15 @@ import org.springframework.web.servlet.ModelAndView;
 @Controller
 public class WebMvcTestController {
 
+    @Resource
+    private ObjectProvider<WebMvcTestController> selfProvider;
+
+
     @GetMapping("/hello")
     @ResponseBody
     public String apiHello() {
-//        WebMvcTestController obj = (WebMvcTestController) AopContext.currentProxy();
-        doBusiness();
+        WebMvcTestController selfProviderObject = selfProvider.getObject();
+        selfProviderObject.doBusiness();
         return "Hello!";
     }
 

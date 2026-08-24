@@ -15,7 +15,7 @@
     <artifactId>sentinel-demo-spring-webmvc</artifactId>
 
     <properties>
-        <spring.boot.version>2.5.12</spring.boot.version>
+        <spring.boot.version>3.2.4</spring.boot.version>
     </properties>
 
     <dependencies>
@@ -24,9 +24,21 @@
             <artifactId>sentinel-core</artifactId>
         </dependency>
 
+        <!-- 通过 AOP 把 @SentinelResource 改为 try {SphU.entry()}  -->
         <dependency>
             <groupId>com.alibaba.csp</groupId>
             <artifactId>sentinel-annotation-aspectj</artifactId>
+            <!--
+                Sentinel 1.8.9 默认传递 AspectJ Weaver 1.9.2；该版本早于 Java 17。
+                排除后统一使用 Spring Boot 3.2.4 AOP Starter 提供的 1.9.21，
+                避免同一应用中出现与 Boot 3 字节码级别不匹配的 Weaver。
+            -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.aspectj</groupId>
+                    <artifactId>aspectjweaver</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -42,7 +54,8 @@
         </dependency>
         <dependency>
             <groupId>com.alibaba.csp</groupId>
-            <artifactId>sentinel-spring-webmvc-adapter</artifactId>
+            <!-- Spring Boot 3 使用 Spring MVC 6 和 Jakarta Servlet。 -->
+            <artifactId>sentinel-spring-webmvc-v6x-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
