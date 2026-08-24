@@ -28,6 +28,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class DashboardApplication {
 
+    /**
+     * 端口设置 8678 { sentinel-dashboard/src/main/resources/application.properties }
+     * 访问 http://127.0.0.1:8678/#/dashboard 账密都是 sentinel
+     */
+
+
     public static void main(String[] args) {
         triggerSentinelInit();
         SpringApplication.run(DashboardApplication.class, args);

@@ -65,6 +65,16 @@ public class InterceptorConfig implements WebMvcConfigurer {
         // If set it to false, entrance contexts will be separated by different URLs,
         // which is useful to support "chain" relation flow strategy.
         // We can change it and view different result in `Resource Chain` menu of dashboard.
+        /**
+         * 链路整合, 默认是true, 减少 Context 数量，降低内存占用
+         * Context 是 Sentinel 中用于标识调用链路入口的概念。 每个请求进入 Sentinel 时都会创建一个 Context。
+         *
+         * 链路模式的判断逻辑是：只有当 context.getName() 等于 refResource（配置的入口资源）时，规则才会生效。
+         *   当 WebContextUnify = true 时：
+         *   - 所有请求的 context name 都是 "sentinel_spring_web_context"
+         *   - 如果你配置 refResource = "/api/user"，它永远不会等于 "sentinel_spring_web_context"
+         *   - 结果：链路规则永远匹配不上，流控失效！
+         */
         config.setWebContextUnify(true);
         config.setOriginParser(request -> request.getHeader("S-user"));
 

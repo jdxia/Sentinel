@@ -18,6 +18,9 @@ package com.alibaba.csp.sentinel.demo.spring.webmvc.controller;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import com.alibaba.csp.sentinel.annotation.SentinelResource;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,36 +39,9 @@ public class WebMvcTestController {
     @GetMapping("/hello")
     @ResponseBody
     public String apiHello() {
+//        WebMvcTestController obj = (WebMvcTestController) AopContext.currentProxy();
         doBusiness();
         return "Hello!";
-    }
-
-    @GetMapping("/err")
-    @ResponseBody
-    public String apiError() {
-        doBusiness();
-        return "Oops...";
-    }
-
-    @GetMapping("/foo/{id}")
-    @ResponseBody
-    public String apiFoo(@PathVariable("id") Long id) {
-        doBusiness();
-        return "Hello " + id;
-    }
-
-    @GetMapping("/exclude/{id}")
-    @ResponseBody
-    public String apiExclude(@PathVariable("id") Long id) {
-        doBusiness();
-        return "Exclude " + id;
-    }
-
-    @GetMapping("/forward")
-    public ModelAndView apiForward() {
-        ModelAndView mav = new ModelAndView();
-        mav.setViewName("hello");
-        return mav;
     }
 
     @GetMapping("/async")
@@ -79,13 +55,26 @@ public class WebMvcTestController {
         return result;
     }
 
-    private void doBusiness() {
+    /**
+     * blockHandler：当流量控制或熔断降级触发时，会调用该方法，返回对应的提示信息。
+     */
+    @SentinelResource(value = "business", blockHandler = "blockHandler")
+    public String doBusiness() {
         Random random = new Random(1);
         try {
             TimeUnit.MILLISECONDS.sleep(random.nextInt(100));
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+
+        return "ok";
     }
+
+    public String blockHandler(BlockException blockException) {
+        System.out.println("=============> blockHandler");
+
+        return "block...";
+    }
+
 
 }
