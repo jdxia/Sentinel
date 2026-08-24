@@ -2,29 +2,32 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>com.alibaba.csp</groupId>
         <artifactId>sentinel-demo</artifactId>
         <version>${revision}</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
-    <name>${project.groupId}:${project.artifactId}</name>
-
-    <artifactId>sentinel-demo-spring-cloud-gateway</artifactId>
+    <artifactId>sentinel-demo-spring-cloud</artifactId>
+    <name>sentinel-demo-spring-cloud</name>
 
     <properties>
-        <!-- Spring Cloud Gateway 4.3 belongs to the Spring 6 / Spring Boot 3 generation. -->
+        <!-- Spring Boot 3 and Spring Cloud 2025 require Java 17 or later. -->
         <java.source.version>17</java.source.version>
         <java.target.version>17</java.target.version>
-        <spring.boot.version>3.5.15</spring.boot.version>
-        <spring.cloud.version>2025.0.3</spring.cloud.version>
+        <!-- Keep the framework release trains aligned with Spring Cloud Alibaba 2025.0.0.0. -->
+        <spring.boot.version>3.5.0</spring.boot.version>
+        <spring.cloud.version>2025.0.0</spring.cloud.version>
+        <!-- This release manages every Sentinel component at 1.8.9, matching the current source tree. -->
+        <spring-cloud-alibaba.version>2025.0.0.0</spring-cloud-alibaba.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- Keep all Spring Boot and Spring Cloud transitive dependencies on compatible release trains. -->
+            <!-- Import all three BOMs so transitive framework dependencies stay on compatible release trains. -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -39,23 +42,24 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
     <dependencies>
         <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-gateway-server-webflux</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.alibaba.csp</groupId>
-            <artifactId>sentinel-spring-cloud-gateway-v6x-adapter</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.alibaba.csp</groupId>
-            <artifactId>sentinel-transport-simple-http</artifactId>
+            <groupId>com.alibaba.cloud</groupId>
+            <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
         </dependency>
     </dependencies>
 
@@ -64,7 +68,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <!-- Override every compiler execution inherited from sentinel-parent for this Java 17-only demo. -->
+                <!-- Override every compiler execution inherited from the Java 8-oriented parent project. -->
                 <executions>
                     <execution>
                         <id>default-compile</id>
@@ -87,29 +91,28 @@
                 </executions>
                 <configuration>
                     <release>17</release>
+                    <parameters>true</parameters>
+                    <source>${java.source.version}</source>
+                    <target>${java.target.version}</target>
+                    <compilerArgument>-parameters</compilerArgument>
+                    <encoding>${project.build.sourceEncoding}</encoding>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring.boot.version}</version>
+                <configuration>
+                    <mainClass>com.alibaba.csp.sentinel.demo.spring.cloud.SpringCloudSentinelDemoApplication</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>macos-aarch64</id>
-            <activation>
-                <os>
-                    <family>mac</family>
-                    <arch>aarch64</arch>
-                </os>
-            </activation>
-            <dependencies>
-                <!-- Reactor Netty otherwise pulls the Intel macOS DNS native library on Apple Silicon. -->
-                <dependency>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty-resolver-dns-native-macos</artifactId>
-                    <classifier>osx-aarch_64</classifier>
-                    <scope>runtime</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-    </profiles>
 </project>

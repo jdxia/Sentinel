@@ -46,8 +46,8 @@ public class WebMvcTestController {
     @ResponseBody
     public String apiHello() {
         WebMvcTestController selfProviderObject = selfProvider.getObject();
-        selfProviderObject.doBusiness();
-        return "Hello!";
+
+        return selfProviderObject.doBusiness();
     }
 
     @GetMapping("/async")
@@ -64,7 +64,7 @@ public class WebMvcTestController {
     /**
      * blockHandler：当流量控制或熔断降级触发时，会调用该方法，返回对应的提示信息。
      */
-    @SentinelResource(value = "business", blockHandler = "blockHandler")
+    @SentinelResource(value = "business", blockHandler = "blockHandler", fallback = "fallbackHandler")
     public String doBusiness() {
         Random random = new Random(1);
         try {
@@ -73,13 +73,24 @@ public class WebMvcTestController {
             e.printStackTrace();
         }
 
-        return "ok";
+
+        // 模拟 fallback
+        throw new RuntimeException("blockHandler");
+
+//        return "ok";
     }
 
     public String blockHandler(BlockException blockException) {
         System.out.println("=============> blockHandler");
 
+
         return "block...";
+    }
+
+    public String fallbackHandler(Throwable throwable) {
+        System.out.println("=============> fallbackHandler");
+
+        return "fallback...";
     }
 
 

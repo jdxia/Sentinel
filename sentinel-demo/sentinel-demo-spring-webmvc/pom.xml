@@ -52,12 +52,14 @@
             <groupId>com.alibaba.csp</groupId>
             <artifactId>sentinel-transport-simple-http</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.alibaba.csp</groupId>
             <!-- Spring Boot 3 使用 Spring MVC 6 和 Jakarta Servlet。 -->
             <artifactId>sentinel-spring-webmvc-v6x-adapter</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>

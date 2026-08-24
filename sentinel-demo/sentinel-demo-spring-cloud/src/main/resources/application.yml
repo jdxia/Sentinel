@@ -1,0 +1,43 @@
+spring:
+  cloud:
+    sentinel:
+      # 在启动期间初始化传输客户端，以便应用程序出现在仪表板中
+      # 在第一个业务请求到来之前
+      eager: true
+      transport:
+        dashboard: 127.0.0.1:8678
+        # 默认 8719 这是dashboard和当前项目通信端口
+        port: 8719
+  application:
+    name: sentinel-demo-spring-cloud
+  jmx:
+    enabled: false
+  main:
+    allow-circular-references: true
+    banner-mode: off
+  web:
+    resources:
+      add-mappings: false
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+  mvc:
+    servlet:
+      load-on-startup: 1
+  lifecycle:
+    timeout-per-shutdown-phase: 90s
+
+# Avoid the default 8080 port, which is commonly occupied by Sentinel Dashboard during local study.
+server:
+  address: 0.0.0.0
+  port: 18080
+  shutdown: graceful
+  compression:
+    enabled: true
+    min-response-size: 2048 # 启用压缩的最小响应大小（默认值为2048）
+    mime-types: application/json,application/javascript
+  tomcat:
+    uri-encoding: UTF-8
+    threads:
+      max: 200
+      min-spare: 200

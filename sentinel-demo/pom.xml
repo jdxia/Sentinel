@@ -44,6 +44,7 @@
         <module>sentinel-demo-motan</module>
         <module>sentinel-demo-transport-spring-mvc</module>
         <module>sentinel-demo-servlet</module>
+        <module>sentinel-demo-spring-cloud</module>
     </modules>
 
     <dependencies>
