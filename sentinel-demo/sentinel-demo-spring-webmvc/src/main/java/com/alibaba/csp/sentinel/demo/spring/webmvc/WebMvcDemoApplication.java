@@ -38,13 +38,39 @@ public class WebMvcDemoApplication {
 
     public static void main(String[] args) {
         /**
+         * csp.sentinel.config.file 指定 Sentinel 原生配置文件路径, 默认读取 classpath 下的 sentinel.properties
+         * csp.sentinel.app.type  应用类型, 默认 0，普通应用；网关等特定场景可能用不同类型
+         * csp.sentinel.heartbeat.client.ip  向 Dashboard 注册的本机 IP
+         * csp.sentinel.heartbeat.interval.ms 心跳周期，单位毫秒
+         * csp.sentinel.heartbeat.api.path Dashboard 注册接口路径, 使用官方 Dashboard 时不改，默认 /registry/machine
+         *
+         * csp.sentinel.log.dir Sentinel 日志和本地指标文件目录, 默认 ${user.home}/logs/csp/
+         * csp.sentinel.log.level Sentinel 内部日志等级, 默认 INFO
+         * csp.sentinel.metric.file.single.size 单个指标文件最大字节数 默认 52428800，即 50 MiB
+         * csp.sentinel.metric.file.total.count 每个资源保留的指标文件数, 默认6
+         * csp.sentinel.metric.flush.interval 指标落盘任务周期，单位秒, 1；小于等于 0 时不启动该定时任务
+         */
+
+
+        /**
          * 设置启动参数, 指定 Sentinel 客户端连接的 Dashboard 服务地址
          * -Dcsp.sentinel.dashboard.server=127.0.0.1:8080 -Dproject.name=sentinel-demo-spring-webmvc
          *
          * 这个服务的是 http://127.0.0.1:10001/hello
          */
         System.setProperty("csp.sentinel.dashboard.server", "127.0.0.1:8678");
+
+        /**
+         * Sentinel 本地命令端口与 Spring Boot 的 server.port 独立，必须在 Sentinel 初始化前设置。
+         * 如果 8721 已经被其他进程占用，Sentinel 会继续尝试后续端口
+         */
+        System.setProperty("csp.sentinel.api.port", "8721");
+
+        /**
+         * dashboard上展示的名字, csp.sentinel.app.name 优于 project.name
+         */
         System.setProperty("project.name", "sentinel-demo-spring-webmvc");
+        System.setProperty("csp.sentinel.app.name", "sentinel-demo-spring-webmvc");
 
         // 手动触发 Sentinel 初始化（相当于 sentinel.eager=true 的效果）
         InitExecutor.doInit();

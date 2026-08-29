@@ -7,7 +7,21 @@ spring:
       transport:
         dashboard: 127.0.0.1:8678
         # 默认 8719 这是dashboard和当前项目通信端口
-        port: 8719
+        # http://127.0.0.1:8720/getRules?type=flow 和 setRules 是 Sentinel 的命令端口能力
+        port: 8720
+      datasource:
+        flow-rules:
+          nacos:
+            # Nacos 是规则权威来源；生产环境通过环境变量覆盖地址和分组。
+            server-addr: ${NACOS_SERVER_ADDR:192.168.33.20:8848}
+            # 这里填写 Namespace ID，而不是控制台显示名称。
+            namespace: ${NACOS_NAMESPACE:sentinel}
+#            username: xx
+#            password: xx
+            group-id: ${NACOS_GROUP_ID:SENTINEL_GROUP}
+            data-id: ${spring.application.name}-flow-rules
+            data-type: json
+            rule-type: flow
   application:
     name: sentinel-demo-spring-cloud
   jmx:

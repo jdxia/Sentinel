@@ -41,14 +41,15 @@ public class InterceptorConfig implements WebMvcConfigurer {
     private void addSpringMvcInterceptor(InterceptorRegistry registry) {
         SentinelWebMvcConfig config = new SentinelWebMvcConfig();
 
-        // Depending on your situation, you can choose to process the BlockException via
-        // the BlockExceptionHandler or throw it directly, then handle it
-        // in Spring web global exception handler.
-
-        // config.setBlockExceptionHandler((request, response, e) -> { throw e; });
-
         // Use the default handler.
-        config.setBlockExceptionHandler(new DefaultBlockExceptionHandler());
+        /**
+         * 这是默认的, 不建议用这个, new DefaultBlockExceptionHandler()
+         */
+//        config.setBlockExceptionHandler(new DefaultBlockExceptionHandler());
+        // 里面设置为null也行, 走默认拦截器
+        config.setBlockExceptionHandler((request, response, resourceName, e) -> {
+            throw e;
+        });
 
         // Custom configuration if necessary
         config.setHttpMethodSpecify(true);

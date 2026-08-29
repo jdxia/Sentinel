@@ -61,6 +61,15 @@
             <groupId>com.alibaba.cloud</groupId>
             <artifactId>spring-cloud-starter-alibaba-sentinel</artifactId>
         </dependency>
+        <!--
+            Starter 中该可选依赖不会传递，显式引入后才能使用 Nacos 规则数据源。
+             nacos一开始不知道写什么的时候, 写 []
+             可以 访问 http://127.0.0.1:8720/getRules?type=flow 获取当前的流控规则写进去, 端口看实际的, 默认8719
+             -->
+        <dependency>
+            <groupId>com.alibaba.csp</groupId>
+            <artifactId>sentinel-datasource-nacos</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
