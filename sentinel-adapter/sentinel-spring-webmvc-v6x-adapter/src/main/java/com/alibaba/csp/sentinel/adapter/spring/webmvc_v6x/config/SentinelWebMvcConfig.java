@@ -24,6 +24,11 @@ public class SentinelWebMvcConfig extends BaseWebMvcConfig {
 
     /**
      * 在这边注入的 {@link com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration#sentinelWebMvcConfig()}
+     *
+     * 在这个方法里面, 有 blockExceptionHandlerOptional, urlCleanerOptional, requestOriginParserOptional 就是这些
+     * @Autowired
+     * private Optional<?> 把用户写的依赖注入进来
+     * 如果有就设置进去
      */
 
     public static final String DEFAULT_REQUEST_ATTRIBUTE_NAME = "$$sentinel_spring_web_entry_attr";

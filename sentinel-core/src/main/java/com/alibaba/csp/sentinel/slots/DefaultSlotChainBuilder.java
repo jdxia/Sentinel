@@ -39,6 +39,10 @@ public class DefaultSlotChainBuilder implements SlotChainBuilder {
     public ProcessorSlotChain build() {
         ProcessorSlotChain chain = new DefaultProcessorSlotChain();
 
+        /**
+         * 用这个 spi 接口 获取这个接口的实现类
+         * META-INF/services/com.alibaba.csp.sentinel.slotchain.ProcessorSlot 里面写, 可以看ProcessorSlot 接口注释
+         */
         List<ProcessorSlot> sortedSlotList = SpiLoader.of(ProcessorSlot.class).loadInstanceListSorted();
         for (ProcessorSlot slot : sortedSlotList) {
             if (!(slot instanceof AbstractLinkedProcessorSlot)) {

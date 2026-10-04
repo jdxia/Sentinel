@@ -34,7 +34,14 @@ import java.lang.reflect.Method;
  */
 @Aspect
 public class SentinelResourceAspect extends AbstractSentinelAspectSupport {
+    /**
+     * 用法 @SentinelResource(value = "test", blockHandler = "handleException", blockHandlerClass = {ExceptionUtil.class},
+     *          fallback = "fallbackHandler", fallbackClass = {FooUtil.class})
+     */
 
+    /**
+     * 有这个注解就拦截
+     */
     @Pointcut("@annotation(com.alibaba.csp.sentinel.annotation.SentinelResource)")
     public void sentinelResourceAnnotationPointcut() {
     }
@@ -43,26 +50,50 @@ public class SentinelResourceAspect extends AbstractSentinelAspectSupport {
     public Object invokeResourceWithSentinel(ProceedingJoinPoint pjp) throws Throwable {
         Method originMethod = resolveMethod(pjp);
 
+        /**
+         * 拿这个 SentinelResource 注解
+         */
         SentinelResource annotation = originMethod.getAnnotation(SentinelResource.class);
         if (annotation == null) {
             // Should not go through here.
             throw new IllegalStateException("Wrong state for SentinelResource annotation");
         }
+
+        /**
+         * 拿的注解的值
+         */
         String resourceName = getResourceName(annotation.value(), originMethod);
         EntryType entryType = annotation.entryType();
         int resourceType = annotation.resourceType();
         Entry entry = null;
         try {
+            /**
+             * 进行限流
+             * 往下
+             */
             entry = SphU.entry(resourceName, resourceType, entryType, pjp.getArgs());
+            // 直接被保护的切面里面的逻辑
             return pjp.proceed();
         } catch (BlockException ex) {
+            /**
+             * 如果是 BlockException类型的异常
+             */
             return handleBlockException(pjp, annotation, ex);
         } catch (Throwable ex) {
+            /**
+             * 执行业务代码出异常, 不是 BlockException类型的异常
+             */
+
+
             Class<? extends Throwable>[] exceptionsToIgnore = annotation.exceptionsToIgnore();
             // The ignore list will be checked first.
             if (exceptionsToIgnore.length > 0 && exceptionBelongsTo(ex, exceptionsToIgnore)) {
                 throw ex;
             }
+
+            /**
+             * exceptionsToIgnore 检查，命中则直接抛 fallback → defaultFallback → 抛出原异常
+             */
             if (exceptionBelongsTo(ex, annotation.exceptionsToTrace())) {
                 traceException(ex);
                 return handleFallback(pjp, annotation, ex);
@@ -72,6 +103,10 @@ public class SentinelResourceAspect extends AbstractSentinelAspectSupport {
             throw ex;
         } finally {
             if (entry != null) {
+
+                /**
+                 * entry 退出的方法
+                 */
                 entry.exit(1, pjp.getArgs());
             }
         }

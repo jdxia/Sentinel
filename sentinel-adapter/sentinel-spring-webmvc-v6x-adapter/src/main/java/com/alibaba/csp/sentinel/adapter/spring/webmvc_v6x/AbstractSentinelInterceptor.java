@@ -58,7 +58,9 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
 
     /**
      * 看这个 {@link SentinelWebMvcConfig}
+     *
      * 这个自动装配是在 {@link com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration}
+     * 就是在自动装配里面做的
      */
     private final BaseWebMvcConfig baseWebMvcConfig;
 
@@ -105,22 +107,48 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
             }
 
             /**
-             * 解析这个请求来自哪里, 可以看 自己写的 MyRequestOriginParser
+             * 解析这个请求来自哪里, 怎么写一个 可以看 自己写的 MyRequestOriginParser
+             * cloud 才会取 自定义的 bean, boot要手动设置
              */
             // Parse the request origin using registered origin parser.
             String origin = parseOrigin(request);
 
+            /**
+             * 看 {@link SentinelWebInterceptor#getContextName(HttpServletRequest)}
+             * 统一 context 返回 sentinel_spring_web_context
+             * 按 URL 分 context 返回具体的url
+             */
             String contextName = getContextName(request);
+
+            /**
+             * 以 contextName 进入上下文
+             */
             ContextUtil.enter(contextName, origin);
+
+            /**
+             * 再以 resourceName 创建资源条目, 下面就是他要保护的资源
+             *
+             * 这个里面会判断要不要流控, 如果有问题, 会抛异常走到下面
+             *
+             * 往下
+             */
             Entry entry = SphU.entry(resourceName, ResourceTypeConstants.COMMON_WEB, EntryType.IN);
             request.setAttribute(baseWebMvcConfig.getRequestAttributeName(), entry);
+
+            // 走到 下面的 拦截器 和 controller代码
             return true;
         } catch (BlockException e) {
+            /**
+             * 无论什么异常, 父类都是 BlockException
+             */
+
             try {
                 handleBlockException(request, response, resourceName, e);
             } finally {
                 ContextUtil.exit();
             }
+
+            // 不往下走
             return false;
         }
     }
@@ -145,6 +173,8 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
 
 
     /**
+     * 异步servlet走这个
+     *
      * When a handler starts an asynchronous request, the DispatcherServlet exits without invoking postHandle and afterCompletion
      * Called instead of postHandle and afterCompletion to exit the context and clean thread-local variables when the handler is being executed concurrently.
      *
@@ -156,12 +186,24 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
     @Override
     public void afterConcurrentHandlingStarted(HttpServletRequest request, HttpServletResponse response,
                                                Object handler) throws Exception {
+
+        // 和 afterCompletion一样
         exit(request);
     }
 
+    /**
+     * Controller 抛异常时 afterCompletion 也一定会被调用，它就是拦截器链的 "finally"
+     *
+     * 不会回调它的三种情况
+     * 1. preHandle 被流控返回 false, 清理在 preHandle 的 finally
+     * 2. preHandle 直接抛 BlockException, 和上面一样
+     * 3. Controller 开启异步,  不走 afterCompletion，改走 afterConcurrentHandlingStarted
+     */
     @Override
     public void afterCompletion(HttpServletRequest request, HttpServletResponse response,
                                 Object handler, Exception ex) throws Exception {
+
+        // 往下
         exit(request, ex);
     }
 
@@ -218,7 +260,12 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
     protected void handleBlockException(HttpServletRequest request, HttpServletResponse response, String resourceName,
                                         BlockException e)
             throws Exception {
+
+        /**
+         * 看用户有没有 自定义 BlockExceptionHandler 这个类型的bean
+         */
         if (baseWebMvcConfig.getBlockExceptionHandler() != null) {
+            // 交给用户自定义的 BlockExceptionHandler 类型的bean处理
             baseWebMvcConfig.getBlockExceptionHandler().handle(request, response, resourceName, e);
 
             // Record status when blocked
@@ -234,9 +281,13 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
     protected String parseOrigin(HttpServletRequest request) {
         String origin = EMPTY_ORIGIN;
 
+        /**
+         * 怎么获取到用户的, 可以看 baseWebMvcConfig 这个
+         */
         if (baseWebMvcConfig.getOriginParser() != null) {
             origin = baseWebMvcConfig.getOriginParser().parseOrigin(request);
             if (StringUtil.isEmpty(origin)) {
+                // 如果没有,就是 ""
                 return EMPTY_ORIGIN;
             }
         }

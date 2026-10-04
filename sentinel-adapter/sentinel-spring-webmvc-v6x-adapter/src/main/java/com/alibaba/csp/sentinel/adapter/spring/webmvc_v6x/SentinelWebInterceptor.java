@@ -35,6 +35,8 @@ public class SentinelWebInterceptor extends AbstractSentinelInterceptor {
 
     /**
      * 核心看继承的 {@link AbstractSentinelInterceptor#preHandle(HttpServletRequest, HttpServletResponse, Object)}
+     * 还有后置的 {@link AbstractSentinelInterceptor#afterCompletion(HttpServletRequest, HttpServletResponse, Object, Exception)}
+     * 异步servlet的后置 {@link AbstractSentinelInterceptor#afterConcurrentHandlingStarted(HttpServletRequest, HttpServletResponse, Object)}
      */
 
     private final SentinelWebMvcConfig config;
@@ -93,10 +95,13 @@ public class SentinelWebInterceptor extends AbstractSentinelInterceptor {
 
     @Override
     protected String getContextName(HttpServletRequest request) {
+        // 统一 context
         if (config.isWebContextUnify()) {
+            // 返回 sentinel_spring_web_context
             return super.getContextName(request);
         }
 
+        // 按 URL 分 context
         return getResourceName(request);
     }
 }

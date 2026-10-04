@@ -291,6 +291,11 @@ public class SphU {
      * @since 1.7.0
      */
     public static Entry entry(String name, int resourceType, EntryType trafficType) throws BlockException {
+
+        /**
+         * {@link  CtSph#entryWithType(String, int, EntryType, int, Object[])}
+         * 往下
+         */
         return Env.sph.entryWithType(name, resourceType, trafficType, 1, OBJECTS0);
     }
 
@@ -309,6 +314,11 @@ public class SphU {
      */
     public static Entry entry(String name, int resourceType, EntryType trafficType, Object[] args)
         throws BlockException {
+
+        /**
+         * 往下
+         * {@link CtSph#entryWithType(String, int, EntryType, int, Object[])}
+         */
         return Env.sph.entryWithType(name, resourceType, trafficType, 1, args);
     }
 

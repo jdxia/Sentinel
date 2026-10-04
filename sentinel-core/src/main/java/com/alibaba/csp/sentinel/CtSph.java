@@ -133,6 +133,11 @@ public class CtSph implements Sph {
             return new CtEntry(resourceWrapper, null, context);
         }
 
+        /**
+         * 看 ProcessorSlot 里面的注释
+         *
+         * 把这个形成一个 slot chain, 往下
+         */
         ProcessorSlot<Object> chain = lookProcessChain(resourceWrapper);
 
         /*
@@ -192,7 +197,12 @@ public class CtSph implements Sph {
      * @return {@link ProcessorSlotChain} of the resource
      */
     ProcessorSlot<Object> lookProcessChain(ResourceWrapper resourceWrapper) {
+        /**
+         * 是做了缓存
+         */
         ProcessorSlotChain chain = chainMap.get(resourceWrapper);
+
+        // 如果没有
         if (chain == null) {
             synchronized (LOCK) {
                 chain = chainMap.get(resourceWrapper);
@@ -202,6 +212,10 @@ public class CtSph implements Sph {
                         return null;
                     }
 
+                    /**
+                     * 构造一个 chain
+                     * 往下, 重点
+                     */
                     chain = SlotChainProvider.newSlotChain();
                     Map<ResourceWrapper, ProcessorSlotChain> newMap = new HashMap<ResourceWrapper, ProcessorSlotChain>(
                         chainMap.size() + 1);
@@ -337,13 +351,19 @@ public class CtSph implements Sph {
     @Override
     public Entry entryWithType(String name, int resourceType, EntryType entryType, int count, Object[] args)
         throws BlockException {
+
+        // 往下
         return entryWithType(name, resourceType, entryType, count, false, args);
     }
 
     @Override
     public Entry entryWithType(String name, int resourceType, EntryType entryType, int count, boolean prioritized,
                                Object[] args) throws BlockException {
+
+        // 包装了一下
         StringResourceWrapper resource = new StringResourceWrapper(name, entryType, resourceType);
+
+        // 往下
         return entryWithPriority(resource, count, prioritized, args);
     }
 

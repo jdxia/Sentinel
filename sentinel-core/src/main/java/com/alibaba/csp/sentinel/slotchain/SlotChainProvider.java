@@ -37,6 +37,11 @@ public final class SlotChainProvider {
      */
     public static ProcessorSlotChain newSlotChain() {
         if (slotChainBuilder != null) {
+
+            /**
+             * {@link DefaultSlotChainBuilder#build()}
+             * 往下
+             */
             return slotChainBuilder.build();
         }
 

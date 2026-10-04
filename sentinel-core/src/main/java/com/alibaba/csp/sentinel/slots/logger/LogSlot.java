@@ -31,10 +31,18 @@ import com.alibaba.csp.sentinel.spi.Spi;
 @Spi(order = Constants.ORDER_LOG_SLOT)
 public class LogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
+    /**
+     * 入口
+     */
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode obj, int count, boolean prioritized, Object... args)
         throws Throwable {
         try {
+            /**
+             * 这边可以写自己 slot的相关逻辑
+             */
+
+            // 上面逻辑走完了, fireEntry 调用下面的slot
             fireEntry(context, resourceWrapper, obj, count, prioritized, args);
         } catch (BlockException e) {
             EagleEyeLogUtil.log(resourceWrapper.getName(), e.getClass().getSimpleName(), e.getRuleLimitApp(),
@@ -45,9 +53,17 @@ public class LogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
         }
     }
 
+    /**
+     * 出口
+     */
     @Override
     public void exit(Context context, ResourceWrapper resourceWrapper, int count, Object... args) {
         try {
+            /**
+             * 这边可以写自己 slot的 退出逻辑
+             */
+
+            // 执行下面slot退出方法
             fireExit(context, resourceWrapper, count, args);
         } catch (Throwable e) {
             RecordLog.warn("Unexpected entry exit exception", e);

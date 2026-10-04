@@ -72,6 +72,8 @@ public class MyBootInterceptorConfig implements WebMvcConfigurer {
          */
         config.setWebContextUnify(true);
 
+
+
         /**
          * 来源获取是从这个来拿的
          */

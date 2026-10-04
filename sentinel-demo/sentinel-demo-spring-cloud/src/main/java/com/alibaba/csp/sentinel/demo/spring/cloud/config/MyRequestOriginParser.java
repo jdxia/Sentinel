@@ -9,7 +9,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
  * 自定义请求来源解析器
  * 如果是  Spring Cloud Alibaba 的 SentinelWebAutoConfiguration（通过 ObjectProvider<RequestOriginParser> 注入）才会自动生效
  *
- * 这个是 Spring Cloud Alibaba 所以会生效
+ * 这个是 Spring Cloud Alibaba 所以会生效, 如果是boot这个方式不会生效的
  */
 @Component
 public class MyRequestOriginParser implements RequestOriginParser {

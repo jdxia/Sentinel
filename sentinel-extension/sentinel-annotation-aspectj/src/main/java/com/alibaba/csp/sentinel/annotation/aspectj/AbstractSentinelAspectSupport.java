@@ -73,10 +73,17 @@ public abstract class AbstractSentinelAspectSupport {
     }
 
     protected String getResourceName(String resourceName, /*@NonNull*/ Method method) {
+        /**
+         * 如果注解上有定义这个资源名字, 就返回这个资源的名字
+         */
         // If resource name is present in annotation, use this value.
         if (StringUtil.isNotBlank(resourceName)) {
             return resourceName;
         }
+
+        /**
+         * 根据执行的方法, 返回方法的名字
+         */
         // Parse name of target method.
         return MethodUtil.resolveMethodName(method);
     }
@@ -126,17 +133,26 @@ public abstract class AbstractSentinelAspectSupport {
     protected Object handleBlockException(ProceedingJoinPoint pjp, SentinelResource annotation, BlockException ex)
         throws Throwable {
 
+        /**
+         * 根据注解里面的参数, 找 blockHandlerMethod
+         */
         // Execute block handler if configured.
         Method blockHandlerMethod = extractBlockHandlerMethod(pjp, annotation.blockHandler(),
             annotation.blockHandlerClass());
         if (blockHandlerMethod != null) {
+
+            // 获取原来的参数
             Object[] originArgs = pjp.getArgs();
             // Construct args.
             Object[] args = Arrays.copyOf(originArgs, originArgs.length + 1);
+            // 在原来参数的后面加个, 把异常传进去
             args[args.length - 1] = ex;
+
+            // 调用 blockHandlerMethod
             return invoke(pjp, blockHandlerMethod, args);
         }
 
+        // 如果 blockHandlerMethod 为空, 走 fallback 的
         // If no block handler is present, then go to fallback.
         return handleFallback(pjp, annotation, ex);
     }
