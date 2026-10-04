@@ -1,6 +1,7 @@
 package com.alibaba.csp.sentinel.demo.spring.cloud;
 
 import com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration;
+import com.alibaba.cloud.sentinel.custom.context.SentinelApplicationContextInitializer;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.SentinelWebInterceptor;
 import com.alibaba.csp.sentinel.annotation.aspectj.SentinelResourceAspect;
 import org.springframework.boot.SpringApplication;
@@ -11,7 +12,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class SpringCloudSentinelDemoApplication {
 
     /**
-     * 一些配置的key
+     * 一些配置的key, 在spring cloud alibaba里面写在  spring.cloud.sentinel.*
+     * {@link SentinelApplicationContextInitializer} 是在这里设置的
+     *
      * csp.sentinel.config.file 指定 Sentinel 原生配置文件路径, 默认读取 classpath 下的 sentinel.properties
      * csp.sentinel.app.type  应用类型, 默认 0，普通应用；网关等特定场景可能用不同类型
      * csp.sentinel.heartbeat.client.ip  向 Dashboard 注册的本机 IP

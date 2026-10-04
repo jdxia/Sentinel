@@ -3,12 +3,12 @@ spring:
     sentinel:
       # 在启动期间初始化传输客户端，以便应用程序出现在仪表板中
       # 在第一个业务请求到来之前
-      eager: true
+      eager: true  # 如果为true, initializer 末尾会直接调 InitExecutor.doInit()，不用等第一次请求
       transport:
-        dashboard: 127.0.0.1:8678
+        dashboard: 127.0.0.1:8678  # → csp.sentinel.dashboard.server
         # 默认 8719 这是dashboard和当前项目通信端口
         # http://127.0.0.1:8720/getRules?type=flow 和 setRules 是 Sentinel 的命令端口能力
-        port: 8720
+        port: 8720                  # → csp.sentinel.api.port
       datasource:
         flow-rules:
           nacos:
@@ -23,7 +23,7 @@ spring:
             data-type: json
             rule-type: flow
   application:
-    name: sentinel-demo-spring-cloud
+    name: sentinel-demo-spring-cloud  # → csp.sentinel.app.name
   jmx:
     enabled: false
   main:
