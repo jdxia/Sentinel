@@ -1,11 +1,36 @@
 package com.alibaba.csp.sentinel.demo.spring.cloud;
 
+import com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration;
+import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.SentinelWebInterceptor;
+import com.alibaba.csp.sentinel.annotation.aspectj.SentinelResourceAspect;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 
 @SpringBootApplication
 public class SpringCloudSentinelDemoApplication {
+
+    /**
+     * 一些配置的key
+     * csp.sentinel.config.file 指定 Sentinel 原生配置文件路径, 默认读取 classpath 下的 sentinel.properties
+     * csp.sentinel.app.type  应用类型, 默认 0，普通应用；网关等特定场景可能用不同类型
+     * csp.sentinel.heartbeat.client.ip  向 Dashboard 注册的本机 IP
+     * csp.sentinel.heartbeat.interval.ms 心跳周期，单位毫秒
+     * csp.sentinel.heartbeat.api.path Dashboard 注册接口路径, 使用官方 Dashboard 时不改，默认 /registry/machine
+     *
+     * csp.sentinel.log.dir Sentinel 日志和本地指标文件目录, 默认 ${user.home}/logs/csp/
+     * csp.sentinel.log.level Sentinel 内部日志等级, 默认 INFO
+     * csp.sentinel.metric.file.single.size 单个指标文件最大字节数 默认 52428800，即 50 MiB
+     * csp.sentinel.metric.file.total.count 每个资源保留的指标文件数, 默认6
+     * csp.sentinel.metric.flush.interval 指标落盘任务周期，单位秒, 1；小于等于 0 时不启动该定时任务
+     */
+
+    /**
+     * 自动装配是在 {@link SentinelWebAutoConfiguration#sentinelWebMvcConfig()} 这里集成的, 这个是 spring cloud alibaba才会, boot不会
+     *
+     * 拦截器是 {@link SentinelWebInterceptor}
+     * 切面是 {@link SentinelResourceAspect}
+     */
 
     public static void main(String[] args) {
         SpringApplication.run(SpringCloudSentinelDemoApplication.class, args);

@@ -17,6 +17,9 @@ package com.alibaba.csp.sentinel.demo.spring.webmvc;
 
 import java.util.Collections;
 
+import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.SentinelWebInterceptor;
+import com.alibaba.csp.sentinel.annotation.aspectj.SentinelResourceAspect;
+import com.alibaba.csp.sentinel.demo.spring.webmvc.config.MyBootInterceptorConfig;
 import com.alibaba.csp.sentinel.demo.spring.webmvc.controller.MySphUController;
 import com.alibaba.csp.sentinel.init.InitExecutor;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
@@ -38,6 +41,7 @@ public class WebMvcDemoApplication {
 
     public static void main(String[] args) {
         /**
+         * 一些配置的key
          * csp.sentinel.config.file 指定 Sentinel 原生配置文件路径, 默认读取 classpath 下的 sentinel.properties
          * csp.sentinel.app.type  应用类型, 默认 0，普通应用；网关等特定场景可能用不同类型
          * csp.sentinel.heartbeat.client.ip  向 Dashboard 注册的本机 IP
@@ -49,6 +53,13 @@ public class WebMvcDemoApplication {
          * csp.sentinel.metric.file.single.size 单个指标文件最大字节数 默认 52428800，即 50 MiB
          * csp.sentinel.metric.file.total.count 每个资源保留的指标文件数, 默认6
          * csp.sentinel.metric.flush.interval 指标落盘任务周期，单位秒, 1；小于等于 0 时不启动该定时任务
+         */
+
+        /**
+         * 拦截器是 {@link SentinelWebInterceptor}
+         * 切面是 {@link SentinelResourceAspect}
+         *
+         * 这个是boot, 我自己手动集成的, {@link MyBootInterceptorConfig} 和 spring cloud alibaba的不一样
          */
 
 

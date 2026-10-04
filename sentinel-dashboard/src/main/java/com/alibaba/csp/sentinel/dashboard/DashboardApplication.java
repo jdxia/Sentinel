@@ -31,6 +31,9 @@ public class DashboardApplication {
     /**
      * 端口设置 8678 { sentinel-dashboard/src/main/resources/application.properties }
      * 访问 http://127.0.0.1:8678/#/dashboard 账密都是 sentinel
+     *
+     * 账密在 sentinel-dashboard/src/main/resources/application.properties 这个里面修改
+     * 或者 -Dsentinel.dashboard.auth.username=sentinel -Dsentinel.dashboard.auth.password=sentinel
      */
 
 

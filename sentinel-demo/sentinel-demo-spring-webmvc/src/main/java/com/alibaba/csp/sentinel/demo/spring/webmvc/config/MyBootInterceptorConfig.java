@@ -17,7 +17,6 @@ package com.alibaba.csp.sentinel.demo.spring.webmvc.config;
 
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.SentinelWebInterceptor;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.SentinelWebTotalInterceptor;
-import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.callback.DefaultBlockExceptionHandler;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.config.SentinelWebMvcConfig;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.config.SentinelWebMvcTotalConfig;
 import org.springframework.context.annotation.Configuration;
@@ -30,7 +29,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * @author kaizi2009
  */
 @Configuration
-public class InterceptorConfig implements WebMvcConfigurer {
+public class MyBootInterceptorConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
@@ -38,6 +37,9 @@ public class InterceptorConfig implements WebMvcConfigurer {
         addSpringMvcInterceptor(registry);
     }
 
+    /**
+     * 注意这个和 spring cloud alibaba 的 不一样, 那个是 在 com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration#sentinelWebMvcConfig() 这里集成的
+     */
     private void addSpringMvcInterceptor(InterceptorRegistry registry) {
         SentinelWebMvcConfig config = new SentinelWebMvcConfig();
 
@@ -69,6 +71,10 @@ public class InterceptorConfig implements WebMvcConfigurer {
          *   - 结果：链路规则永远匹配不上，流控失效！
          */
         config.setWebContextUnify(true);
+
+        /**
+         * 来源获取是从这个来拿的
+         */
         config.setOriginParser(request -> request.getHeader("S-user"));
 
         // Add sentinel interceptor

@@ -21,6 +21,7 @@ import com.alibaba.csp.sentinel.ResourceTypeConstants;
 import com.alibaba.csp.sentinel.SphU;
 import com.alibaba.csp.sentinel.Tracer;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.config.BaseWebMvcConfig;
+import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.config.SentinelWebMvcConfig;
 import com.alibaba.csp.sentinel.context.ContextUtil;
 import com.alibaba.csp.sentinel.log.RecordLog;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
@@ -55,6 +56,10 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
     public static final String SENTINEL_SPRING_WEB_CONTEXT_NAME = "sentinel_spring_web_context";
     private static final String EMPTY_ORIGIN = "";
 
+    /**
+     * 看这个 {@link SentinelWebMvcConfig}
+     * 这个自动装配是在 {@link com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration}
+     */
     private final BaseWebMvcConfig baseWebMvcConfig;
 
     public AbstractSentinelInterceptor(BaseWebMvcConfig config) {
@@ -87,6 +92,10 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
             throws Exception {
         String resourceName = "";
         try {
+
+            /**
+             *  获取 resourceName, 子类实现 {@link SentinelWebInterceptor#getResourceName(HttpServletRequest)}
+             */
             resourceName = getResourceName(request);
             if (StringUtil.isEmpty(resourceName)) {
                 return true;
@@ -94,8 +103,13 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
             if (increaseReference(request, this.baseWebMvcConfig.getRequestRefName(), 1) != 1) {
                 return true;
             }
+
+            /**
+             * 解析这个请求来自哪里, 可以看 自己写的 MyRequestOriginParser
+             */
             // Parse the request origin using registered origin parser.
             String origin = parseOrigin(request);
+
             String contextName = getContextName(request);
             ContextUtil.enter(contextName, origin);
             Entry entry = SphU.entry(resourceName, ResourceTypeConstants.COMMON_WEB, EntryType.IN);
@@ -219,6 +233,7 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
 
     protected String parseOrigin(HttpServletRequest request) {
         String origin = EMPTY_ORIGIN;
+
         if (baseWebMvcConfig.getOriginParser() != null) {
             origin = baseWebMvcConfig.getOriginParser().parseOrigin(request);
             if (StringUtil.isEmpty(origin)) {

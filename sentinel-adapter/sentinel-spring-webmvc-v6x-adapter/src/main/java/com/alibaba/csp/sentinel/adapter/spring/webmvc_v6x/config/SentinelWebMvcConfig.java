@@ -22,6 +22,10 @@ import com.alibaba.csp.sentinel.adapter.web.common.UrlCleaner;
  */
 public class SentinelWebMvcConfig extends BaseWebMvcConfig {
 
+    /**
+     * 在这边注入的 {@link com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration#sentinelWebMvcConfig()}
+     */
+
     public static final String DEFAULT_REQUEST_ATTRIBUTE_NAME = "$$sentinel_spring_web_entry_attr";
 
     /**
