@@ -33,7 +33,7 @@ public class SpringCloudSentinelDemoApplication {
      */
 
     /**
-     * 自动装配是在 {@link SentinelWebAutoConfiguration#sentinelWebMvcConfig()} 这里集成的, 这个是 spring cloud alibaba才会, boot不会
+     * 自动装配是在 spring cloud alibaba {@link SentinelWebAutoConfiguration#sentinelWebMvcConfig()} 这里集成的, 这个是 spring cloud alibaba才会, boot不会
      * 拦截器的顺序是 {@link SentinelWebMvcConfigurer}  默认顺序是 Ordered.HIGHEST_PRECEDENCE（Integer.MIN_VALUE）最优先的位置
      *
      * 拦截器是 {@link SentinelWebInterceptor}

@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
  * blockHandler 参数与原方法一致，并在最后追加 BlockException；fallback 最后追加 Throwable。</p>
  */
 @RestController
-@Profile("examples")
 @RequestMapping(value = "/examples", produces = MediaType.TEXT_PLAIN_VALUE)
 public class SentinelExamplesController {
 

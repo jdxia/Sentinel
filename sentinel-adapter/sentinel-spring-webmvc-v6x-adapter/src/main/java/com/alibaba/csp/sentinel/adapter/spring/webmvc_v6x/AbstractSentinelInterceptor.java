@@ -257,6 +257,7 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
 //        int status = response.getStatus();
 //        StatusCodeMetricManager.getInstance().recordStatusCode(resourceName, status);
 
+        // 往下
         traceExceptionAndExit(entry, ex);
         removeEntryInRequest(request);
         ContextUtil.exit();
@@ -281,6 +282,8 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
             if (ex != null) {
                 Tracer.traceEntry(ex, entry);
             }
+
+            // 往下
             entry.exit();
         }
     }

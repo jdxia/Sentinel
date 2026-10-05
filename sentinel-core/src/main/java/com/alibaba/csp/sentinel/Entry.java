@@ -94,6 +94,11 @@ public abstract class Entry implements AutoCloseable {
      * @throws ErrorEntryFreeException if entry in current context does not match current entry
      */
     public void exit() throws ErrorEntryFreeException {
+
+        /**
+         * {@link CtEntry#exit(int, Object...)}
+         *  往下
+         */
         exit(count, args);
     }
 
@@ -193,10 +198,10 @@ public abstract class Entry implements AutoCloseable {
      * Like {@code CompletableFuture} since JDK 8, it guarantees specified handler
      * is invoked when this entry terminated (exited), no matter it's blocked or permitted.
      * Use it when you did some STATEFUL operations on entries.
-     * 
+     *
      * @param handler handler function on the invocation terminates
      * @since 1.8.0
      */
     public abstract void whenTerminate(BiConsumer<Context, Entry> handler);
-    
+
 }
