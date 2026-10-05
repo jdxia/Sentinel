@@ -51,6 +51,10 @@ public class SentinelResourceAspect extends AbstractSentinelAspectSupport {
         Method originMethod = resolveMethod(pjp);
 
         /**
+         * 注意这个注解, 默认是 EntryType.OUT
+         */
+
+        /**
          * 拿这个 SentinelResource 注解
          */
         SentinelResource annotation = originMethod.getAnnotation(SentinelResource.class);

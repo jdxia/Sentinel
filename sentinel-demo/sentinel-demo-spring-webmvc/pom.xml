@@ -37,6 +37,12 @@
             <artifactId>sentinel-core</artifactId>
         </dependency>
 
+        <!-- 提供热点参数限流能力及控制台查询、更新热点规则的命令。 -->
+        <dependency>
+            <groupId>com.alibaba.csp</groupId>
+            <artifactId>sentinel-parameter-flow-control</artifactId>
+        </dependency>
+
         <!-- 从 Nacos 订阅并动态刷新 Sentinel 规则。 -->
         <dependency>
             <groupId>com.alibaba.csp</groupId>

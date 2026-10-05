@@ -46,9 +46,14 @@ public class FlowRuleChecker {
         if (ruleProvider == null || resource == null) {
             return;
         }
+
+        /**
+         * 根据当前的资源找到了一些限流的规则
+         */
         Collection<FlowRule> rules = ruleProvider.apply(resource.getName());
         if (rules != null) {
             for (FlowRule rule : rules) {
+                // 如果有限流校验不通过, 就抛限流异常
                 if (!canPassCheck(rule, context, node, count, prioritized)) {
                     throw new FlowException(rule.getLimitApp(), rule);
                 }
