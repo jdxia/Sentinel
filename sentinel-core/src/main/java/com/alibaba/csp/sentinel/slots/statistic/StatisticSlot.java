@@ -51,15 +51,32 @@ import com.alibaba.csp.sentinel.slots.block.BlockException;
 @Spi(order = Constants.ORDER_STATISTIC_SLOT)
 public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
+    /**
+     * 统计slot
+     *
+     * 进入时，先执行后续规则检查，再记录通过量和在途调用数。
+     * 被规则拦截时，记录 block；正常放行的调用在退出时记录 RT、完成量和异常量。
+     * StatisticSlot 负责组织统计，数据实际保存在 Node 中
+     */
+
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode node, int count,
                       boolean prioritized, Object... args) throws Throwable {
         try {
             // Do some checking.
+            /**
+             * 先调用下一个slot
+             */
             fireEntry(context, resourceWrapper, node, count, prioritized, args);
 
+            /**
+             * 如果被流控就走不到下面
+             */
+
             // Request passed, add thread count and pass count.
+            // 线程数新增1个
             node.increaseThreadNum();
+            // 通过的数量新增1个
             node.addPassRequest(count);
 
             if (context.getCurEntry().getOriginNode() != null) {

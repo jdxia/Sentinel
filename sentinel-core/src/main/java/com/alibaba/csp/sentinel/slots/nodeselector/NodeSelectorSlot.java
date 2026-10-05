@@ -23,6 +23,7 @@ import com.alibaba.csp.sentinel.node.DefaultNode;
 import com.alibaba.csp.sentinel.node.EntranceNode;
 import com.alibaba.csp.sentinel.slotchain.AbstractLinkedProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
+import com.alibaba.csp.sentinel.slots.clusterbuilder.ClusterBuilderSlot;
 import com.alibaba.csp.sentinel.spi.Spi;
 
 import java.util.HashMap;
@@ -128,6 +129,11 @@ import java.util.Map;
 public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
 
     /**
+     * 注意这边 isSingleton = false, 并不是让所有资源共用一个 NodeSelectorSlot 单例
+     * 一个资源有多个 DefaultNode
+     */
+
+    /**
      * {@link DefaultNode}s of the same resource in different context.
      */
     private volatile Map<String, DefaultNode> map = new HashMap<String, DefaultNode>(10);
@@ -152,12 +158,46 @@ public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
          * so what is the fastest way to get total statistics of the same resource?
          * The answer is all {@link DefaultNode}s with same resource name share one
          * {@link ClusterNode}. See {@link ClusterBuilderSlot} for detail.
+         *
+         * 有趣的是，我们使用上下文名称而不是资源名称作为映射键。
+         * 请记住，相同的资源{@link ResourceWrapper#equals(Object)} 将共享
+         * 无论在何种上下文中，全局都使用相同的{@link ProcessorSlotChain}。
+         * 所以如果代码进入 {@link #entry(Context, ResourceWrapper, DefaultNode, int, Object...)},资源名称必须相同，但上下文名称不能相同。
+         * 如果我们使用 {@link com.alibaba.csp.sentinel.SphU#entry(String resource)}
+         * 在不同的上下文中输入相同的资源，使用上下文名称作为映射键可以区分同一资源。在这种情况下，将创建多个 {@link DefaultNode},每个不同的上下文（不同的上下文名称）都有相同的资源名称。
+         *
+         * 考虑另一个问题。一个资源可以具有多个 {@link DefaultNode},那么，获取同一资源的总统计数据的最快方法是什么？
+         * 答案是所有具有相同资源名称的 {@link DefaultNode} 共享一个｛@link ClusterNode｝。有关详细信息，请参阅{@link ClusterBuilderSlot}。
+         */
+
+        /**
+         * 进入这个 entry 时，资源名相同，但 Context 名可能不同
+         * 因此，当不同调用进入同一个 NodeSelectorSlot 实例的 entry 方法时，它们的资源名称相同，但上下文名称可能不同。
+         * 所以对这个 Slot 来说：
+         * 资源这一维：已经确定是 nodeA
+         * Context 这一维：还需要区分 entrance1、entrance2
+         *
+         * 从缓存里面获取, 为啥要 用 context名字, 如果用资源名作为 key，在这条链里查来查去都只会查 "nodeA"：
+         * nodeA → 一个 DefaultNode
+         * 这样就无法分别统计 "entrance1" 和 "entrance2" 下的 nodeA。
+         * 一个资源有多个 DefaultNode
+         *
+         *
+         * context 是整个链条的上下文
+         *
+         * Context：我这次请求是从“哪条入口链路”进来的。
+         * DefaultNode：某个资源在“某条链路”上的统计节点。
+         *
+         * ClusterNode  = resource
+         * DefaultNode  = resource × context
          */
         DefaultNode node = map.get(context.getName());
         if (node == null) {
             synchronized (this) {
                 node = map.get(context.getName());
                 if (node == null) {
+                    // 没有就构造1个
+                    // 这个 DefaultNode 继承 StatisticNode 统计节点
                     node = new DefaultNode(resourceWrapper, null);
                     HashMap<String, DefaultNode> cacheMap = new HashMap<String, DefaultNode>(map.size());
                     cacheMap.putAll(map);
@@ -170,7 +210,14 @@ public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
             }
         }
 
+        /**
+         * 设置到上下文
+         */
         context.setCurNode(node);
+
+        /**
+         * 下个slot是 {@link ClusterBuilderSlot#entry(Context, ResourceWrapper, DefaultNode, int, boolean, Object...)}
+         */
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
 

@@ -22,6 +22,7 @@ import com.alibaba.csp.sentinel.node.DefaultNode;
 import com.alibaba.csp.sentinel.slotchain.AbstractLinkedProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
+import com.alibaba.csp.sentinel.slots.statistic.StatisticSlot;
 import com.alibaba.csp.sentinel.spi.Spi;
 
 /**
@@ -33,6 +34,8 @@ public class LogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
     /**
      * 入口
+     *
+     * 这个slot是想先执行别的slot的逻辑, 然后看有没有异常
      */
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode obj, int count, boolean prioritized, Object... args)
@@ -42,9 +45,19 @@ public class LogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
              * 这边可以写自己 slot的相关逻辑
              */
 
-            // 上面逻辑走完了, fireEntry 调用下面的slot
+            /**
+             * 上面逻辑走完了, fireEntry 调用下面的slot
+             *
+             * 下一个slot是 {@link StatisticSlot}
+             */
             fireEntry(context, resourceWrapper, obj, count, prioritized, args);
         } catch (BlockException e) {
+            /**
+             * 写到 sentinel-block.log 文件
+             * 默认路径是 ${user.home}/logs/csp/sentinel-block.log
+             *
+             * 注意: 这里没有经过 SLF4J
+             */
             EagleEyeLogUtil.log(resourceWrapper.getName(), e.getClass().getSimpleName(), e.getRuleLimitApp(),
                 context.getOrigin(), e.getRule() != null ? e.getRule().getId() : null, count);
             throw e;

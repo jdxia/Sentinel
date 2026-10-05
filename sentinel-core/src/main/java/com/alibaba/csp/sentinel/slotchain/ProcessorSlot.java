@@ -15,6 +15,7 @@
  */
 package com.alibaba.csp.sentinel.slotchain;
 
+import com.alibaba.csp.sentinel.Constants;
 import com.alibaba.csp.sentinel.context.Context;
 
 /**
@@ -62,6 +63,16 @@ public interface ProcessorSlot<T> {
      * ├────────┼─────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
      * │ -1000  │ DegradeSlot                                               │ 熔断降级：按 DegradeRule 驱动 CircuitBreaker 状态机（慢调用比例 / 异常比例 / 异常数策略），熔断打开时抛 DegradeException                                      │
      * └────────┴─────────────────────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+     *
+     * 数据准备必须最先：NodeSelectorSlot 和 ClusterBuilderSlot 负责把统计节点挂到 Context 上，后面所有 slot（尤其是规则检查）都从这些节点读运行时数据，所以排最前两位
+     * LogSlot 卡在规则检查前面是为了"截获"：看 LogSlot.java:46-50，它先 fireEntry 放行，在 catch (BlockException e) 里写 EagleEye 日志再重新抛出——排在所有规则 slot 之前，才能捕获到它们抛出的任何阻断异常
+     * StatisticSlot 的"先放行后统计"模型, 所以它必须在所有规则 slot 之前，才能统计到"通过/被拒"两种结果
+     * 规则检查类的内部排序：授权（能不能访问）→ 系统级兜底（机器整体健康度）→ 单资源限流 → 熔断。全局性检查靠前，资源级检查靠后
+     *
+     * 最终链的执行流向
+     * entry:  NodeSelector → ClusterBuilder → Log → Statistic → Authority → System → Flow → CircuitBreaker → Degrade → (业务代码)
+     * exit:   反向回传（业务 RT 在 StatisticSlot.exit 记录）
+     * 参考：{@link Constants}
      *
      * 另外两个扩展模块的 slot 通过各自 jar 的 META-INF/services/com.alibaba.csp.sentinel.slotchain.ProcessorSlot SPI 文件注册（core、parameter-flow-control、api-gateway-adapter-common 各有一份，classpath 上合并去重）：
      * - ParamFlowSlot — 热点参数限流（配合 @SentinelResource 的参数维度规则）

@@ -114,6 +114,8 @@ public class ContextUtil {
             throw new ContextNameDefineException(
                 "The " + Constants.CONTEXT_DEFAULT_NAME + " can't be permit to defined!");
         }
+
+        // 往下
         return trueEnter(name, origin);
     }
 
@@ -121,6 +123,8 @@ public class ContextUtil {
         Context context = contextHolder.get();
         if (context == null) {
             Map<String, DefaultNode> localCacheNameMap = contextNameNodeMap;
+
+            // 先查缓存：同名 context 共享
             DefaultNode node = localCacheNameMap.get(name);
             if (node == null) {
                 if (localCacheNameMap.size() > Constants.MAX_CONTEXT_NAME_SIZE) {
@@ -136,11 +140,15 @@ public class ContextUtil {
                                 return NULL_CONTEXT;
                             } else {
                                 node = new EntranceNode(new StringResourceWrapper(name, EntryType.IN), null);
+
+                                // 挂到虚拟根，进入统计树
                                 // Add entrance node.
                                 Constants.ROOT.addChild(node);
 
                                 Map<String, DefaultNode> newMap = new HashMap<>(contextNameNodeMap.size() + 1);
                                 newMap.putAll(contextNameNodeMap);
+
+                                // 写回缓存（复制换新 map，无锁读）
                                 newMap.put(name, node);
                                 contextNameNodeMap = newMap;
                             }
@@ -150,6 +158,8 @@ public class ContextUtil {
                     }
                 }
             }
+
+            // Context 是轻量对象，进 ThreadLocal
             context = new Context(node, name);
             context.setOrigin(origin);
             contextHolder.set(context);

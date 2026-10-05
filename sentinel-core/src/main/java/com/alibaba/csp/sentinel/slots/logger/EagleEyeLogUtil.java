@@ -27,6 +27,10 @@ public class EagleEyeLogUtil {
     private static StatLogger statLogger;
 
     static {
+        /**
+         * LogBase.getLogBaseDir() 默认取 ${user.home}/logs/csp/，也可以通过 csp.sentinel.log.dir 覆盖
+         * -Dcsp.sentinel.log.dir=/data/logs/sentinel
+         */
         String path = LogBase.getLogBaseDir() + FILE_NAME;
 
         statLogger = EagleEye.statLoggerBuilder("sentinel-block-log")

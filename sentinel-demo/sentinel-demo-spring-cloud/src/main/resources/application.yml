@@ -9,6 +9,7 @@ spring:
         # 默认 8719 这是dashboard和当前项目通信端口
         # http://127.0.0.1:8720/getRules?type=flow 和 setRules 是 Sentinel 的命令端口能力
         port: 8720                  # → csp.sentinel.api.port
+      web-context-unify: true     # 统一上下文
       datasource:
         flow-rules:
           nacos:

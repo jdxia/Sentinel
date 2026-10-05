@@ -114,22 +114,50 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
             String origin = parseOrigin(request);
 
             /**
+             * 统一上下文 webContextUnify 解释
+             * 它决定的是“要不要按请求入口，分别统计同一个资源的调用”。 生产中，你可以把它理解为：我只需要知道这个方法总共被调用了多少次，还是还需要知道这些调用分别从哪个接口进来的？
+             *
+             * 下单接口 /order/create
+             *     → 下单逻辑
+             *     → queryStock（查询库存）
+             *
+             * 报表接口 /report/stock
+             *     → 报表逻辑
+             *     → queryStock（查询库存）
+             *
+             * Resource，资源	现在执行的、需要保护的操作	queryStock
+             * Context name，上下文名称	这串调用从哪个入口开始	/order/create 或 /report/stock
+             * Origin，调用来源	谁来调用这个服务	某个上游应用，例如 order-service
+             *
+             * 要注意:
+             * 统一 Context 名称，也不意味着所有请求共享同一个 Context 对象。
+             * 同步调用中的 Context 保存在 ThreadLocal 中；不同线程有自己的上下文状态，而相同 Context 名称会复用相应的入口统计节点。
+             * MAX_CONTEXT_NAME_SIZE 默认 2000, 如果新增 Context 触发数量保护时，ContextUtil 会使用 NullContext，后续 CtSph 对这些上下文中的 Entry 跳过规则检查
+             *
+             * Sentinel 的“上下文整合”本质是在控制统计维度的基数。
+             * 开启整合：很多 HTTP 入口共用一个 context，大量统计节点可以复用。
+             * 关闭整合：每个 HTTP 入口都可能成为独立 context，Sentinel 为“入口 × 内部资源”分别维护统计节点，所以内存可能迅速膨胀。
+             */
+
+            /**
              * 看 {@link SentinelWebInterceptor#getContextName(HttpServletRequest)}
-             * 统一 context 返回 sentinel_spring_web_context
+             * 统一 context 返回 sentinel_spring_web_context, 归入同一个 Web 入口分组下统计
              * 按 URL 分 context 返回具体的url
              */
             String contextName = getContextName(request);
 
             /**
              * 以 contextName 进入上下文
+             * origin 代表来源
              */
             ContextUtil.enter(contextName, origin);
 
             /**
              * 再以 resourceName 创建资源条目, 下面就是他要保护的资源
              *
-             * 这个里面会判断要不要流控, 如果有问题, 会抛异常走到下面
+             * 相同资源，无论处于哪个 Context，都会共享同一条 Slot Chain
              *
+             * 这个里面会判断要不要流控, 如果有问题, 会抛异常走到下面
              * 往下
              */
             Entry entry = SphU.entry(resourceName, ResourceTypeConstants.COMMON_WEB, EntryType.IN);

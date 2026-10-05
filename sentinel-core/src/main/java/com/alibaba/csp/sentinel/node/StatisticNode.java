@@ -92,6 +92,8 @@ public class StatisticNode implements Node {
     /**
      * Holds statistics of the recent {@code INTERVAL} milliseconds. The {@code INTERVAL} is divided into time spans
      * by given {@code sampleCount}.
+     *
+     * 最近1秒内, 有多少个请求访问这个资源
      */
     private transient volatile Metric rollingCounterInSecond = new ArrayMetric(SampleCountProperty.SAMPLE_COUNT,
         IntervalProperty.INTERVAL);
@@ -104,6 +106,8 @@ public class StatisticNode implements Node {
 
     /**
      * The counter for thread count.
+     *
+     * 统计线程
      */
     private LongAdder curThreadNum = new LongAdder();
 

@@ -31,6 +31,7 @@ import com.alibaba.csp.sentinel.slotchain.AbstractLinkedProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlotChain;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 import com.alibaba.csp.sentinel.slotchain.StringResourceWrapper;
+import com.alibaba.csp.sentinel.slots.logger.LogSlot;
 import com.alibaba.csp.sentinel.spi.Spi;
 
 /**
@@ -77,6 +78,15 @@ public class ClusterBuilderSlot extends AbstractLinkedProcessorSlot<DefaultNode>
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode node, int count,
                       boolean prioritized, Object... args)
         throws Throwable {
+
+        /**
+         * 一个资源有多个 DefaultNode，如何快速获得它的总统计？
+         * 相同资源名称的所有 DefaultNode，共享同一个 ClusterNode
+         *
+         * 上个slot的DefaultNode  = resource × context
+         * ClusterNode  = resource
+         */
+
         if (clusterNode == null) {
             synchronized (lock) {
                 if (clusterNode == null) {
@@ -101,6 +111,9 @@ public class ClusterBuilderSlot extends AbstractLinkedProcessorSlot<DefaultNode>
             context.getCurEntry().setOriginNode(originNode);
         }
 
+        /**
+         * 下一个是 {@link LogSlot}
+         */
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
 
