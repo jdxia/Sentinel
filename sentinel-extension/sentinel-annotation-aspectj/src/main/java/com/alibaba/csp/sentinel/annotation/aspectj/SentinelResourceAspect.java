@@ -110,6 +110,9 @@ public class SentinelResourceAspect extends AbstractSentinelAspectSupport {
 
                 /**
                  * entry 退出的方法
+                 * {@link CtEntry#exit(int, Object...)}
+                 *
+                 * 往下
                  */
                 entry.exit(1, pjp.getArgs());
             }

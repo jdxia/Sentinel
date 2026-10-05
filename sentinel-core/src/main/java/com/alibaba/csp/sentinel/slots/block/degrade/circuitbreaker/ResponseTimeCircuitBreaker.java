@@ -65,16 +65,25 @@ public class ResponseTimeCircuitBreaker extends AbstractCircuitBreaker {
         if (entry == null) {
             return;
         }
+
+        // 看这个请求的完成时间
         long completeTime = entry.getCompleteTimestamp();
         if (completeTime <= 0) {
             completeTime = TimeUtil.currentTimeMillis();
         }
+
+        // 看请求的rt
         long rt = completeTime - entry.getCreateTimestamp();
+
+        // 最大的允许rt
         if (rt > maxAllowedRt) {
+            // 慢调用的总数+1
             counter.slowCount.add(1);
         }
+        // 调用总数+1
         counter.totalCount.add(1);
 
+        // 处理状态
         handleStateChangeWhenThresholdExceeded(rt);
     }
 
@@ -82,7 +91,7 @@ public class ResponseTimeCircuitBreaker extends AbstractCircuitBreaker {
         if (currentState.get() == State.OPEN) {
             return;
         }
-        
+
         if (currentState.get() == State.HALF_OPEN) {
             // In detecting request
             // TODO: improve logic for half-open recovery

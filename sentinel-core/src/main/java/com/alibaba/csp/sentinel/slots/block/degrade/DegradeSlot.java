@@ -26,6 +26,8 @@ import com.alibaba.csp.sentinel.slotchain.ProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.CircuitBreaker;
+import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.ExceptionCircuitBreaker;
+import com.alibaba.csp.sentinel.slots.block.degrade.circuitbreaker.ResponseTimeCircuitBreaker;
 import com.alibaba.csp.sentinel.spi.Spi;
 
 /**
@@ -48,9 +50,13 @@ public class DegradeSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
         performChecking(context, resourceWrapper);
 
         /**
-         * 下面就没有了
+         * 下面就没有了, 到业务代码了
          */
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
+
+        /**
+         * 有些slot的代码是写在 fireEntry 这个时候会按照顺序执行
+         */
     }
 
     void performChecking(Context context, ResourceWrapper r) throws BlockException {
@@ -73,19 +79,35 @@ public class DegradeSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
     @Override
     public void exit(Context context, ResourceWrapper r, int count, Object... args) {
         Entry curEntry = context.getCurEntry();
+
+        // 看这个请求有没有抛异常 BlockException
         if (curEntry.getBlockError() != null) {
             fireExit(context, r, count, args);
             return;
         }
+
+        // 获取这个限流对应的熔断规则
         List<CircuitBreaker> circuitBreakers = DegradeRuleManager.getCircuitBreakers(r.getName());
+
+        // 如果没有配置
         if (circuitBreakers == null || circuitBreakers.isEmpty()) {
             fireExit(context, r, count, args);
             return;
         }
 
+        // 如果没有 抛 BlockException, 并且配置了 熔断规则, 走熔断规则的 请求完成处理
         if (curEntry.getBlockError() == null) {
             // passed request
             for (CircuitBreaker circuitBreaker : circuitBreakers) {
+                /**
+                 * CircuitBreaker (接口)
+                 *     └── AbstractCircuitBreaker (抽象骨架: 状态机 + CAS 迁移 + 观察者通知)
+                 *             ├── ExceptionCircuitBreaker     (按异常比例 / 异常数熔断)
+                 *             └── ResponseTimeCircuitBreaker  (按慢调用比例熔断)
+                 *
+                 * {@link ExceptionCircuitBreaker#onRequestComplete(Context)}
+                 * {@link ResponseTimeCircuitBreaker#onRequestComplete(Context)}
+                 */
                 circuitBreaker.onRequestComplete(context);
             }
         }

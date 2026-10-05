@@ -59,7 +59,7 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
     /**
      * 看这个 {@link SentinelWebMvcConfig}
      *
-     * 这个自动装配是在 {@link com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration}
+     * 这个自动装配是在 com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration
      * 就是在自动装配里面做的
      */
     private final BaseWebMvcConfig baseWebMvcConfig;

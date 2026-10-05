@@ -75,6 +75,7 @@ public abstract class AbstractCircuitBreaker implements CircuitBreaker {
          * OPEN → HALF_OPEN 是惰性触发的，没有定时器。恢复时间到了之后，由第一个进来的请求 CAS 抢到“探测权”，CAS 失败的并发请求直接被拒
          */
 
+        //  CLOSED：全放行，但每个请求完成后都会检查指标是否越限。
         // Template implementation.
         if (currentState.get() == State.CLOSED) {
             // 关闭态全放
@@ -82,7 +83,10 @@ public abstract class AbstractCircuitBreaker implements CircuitBreaker {
         }
         if (currentState.get() == State.OPEN) {
 
-            // 到点后, 抢到 CAS 的那个请求作为探测放行
+            /**
+             * 到点后, 抢到 CAS 的那个请求作为探测放行
+             * HALF_OPEN：只放行一个探测请求，由它的结果决定回到 CLOSED 还是 OPEN。
+             */
             // For half-open state we allow a request for probing.
             return retryTimeoutArrived() && fromOpenToHalfOpen(context);
         }
@@ -97,10 +101,14 @@ public abstract class AbstractCircuitBreaker implements CircuitBreaker {
     abstract void resetStat();
 
     protected boolean retryTimeoutArrived() {
+        /**
+         * 当前时长是不是大于下次重试时间, 也就是熔断时长
+         */
         return TimeUtil.currentTimeMillis() >= nextRetryTimestamp;
     }
 
     protected void updateNextRetryTimestamp() {
+        // 看 recoveryTimeoutMs
         this.nextRetryTimestamp = TimeUtil.currentTimeMillis() + recoveryTimeoutMs;
     }
 
@@ -116,6 +124,9 @@ public abstract class AbstractCircuitBreaker implements CircuitBreaker {
     }
 
     protected boolean fromOpenToHalfOpen(Context context) {
+        /**
+         * cas把熔断器状态 变成半开
+         */
         if (currentState.compareAndSet(State.OPEN, State.HALF_OPEN)) {
             notifyObservers(State.OPEN, State.HALF_OPEN, null);
             Entry entry = context.getCurEntry();

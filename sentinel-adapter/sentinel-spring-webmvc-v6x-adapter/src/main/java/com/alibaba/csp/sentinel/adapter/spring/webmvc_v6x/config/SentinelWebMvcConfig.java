@@ -23,7 +23,7 @@ import com.alibaba.csp.sentinel.adapter.web.common.UrlCleaner;
 public class SentinelWebMvcConfig extends BaseWebMvcConfig {
 
     /**
-     * 在这边注入的 {@link com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration#sentinelWebMvcConfig()}
+     * 在这边注入的 com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration#sentinelWebMvcConfig()
      *
      * 在这个方法里面, 有 blockExceptionHandlerOptional, urlCleanerOptional, requestOriginParserOptional 就是这些
      * @Autowired

@@ -24,6 +24,7 @@ import com.alibaba.csp.sentinel.log.RecordLog;
 import com.alibaba.csp.sentinel.node.Node;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
+import com.alibaba.csp.sentinel.slots.nodeselector.NodeSelectorSlot;
 import com.alibaba.csp.sentinel.util.function.BiConsumer;
 
 /**
@@ -67,6 +68,8 @@ class CtEntry extends Entry {
 
     @Override
     public void exit(int count, Object... args) throws ErrorEntryFreeException {
+
+        // 往下
         trueExit(count, args);
     }
 
@@ -110,6 +113,13 @@ class CtEntry extends Entry {
             } else {
                 // Go through the onExit hook of all slots.
                 if (chain != null) {
+
+                    /**
+                     * 挨个调用 每个 slot的exit方法
+                     *  NodeSelector → ClusterBuilder → Log → Statistic → Authority → System → ParamFlowSlot → Flow → DefaultCircuitBreakerSlot → Degrade → (业务代码)
+                     *
+                     *  {@link NodeSelectorSlot}
+                     */
                     chain.exit(context, resourceWrapper, count, args);
                 }
                 // Go through the existing terminate handlers (associated to this invocation).
@@ -146,6 +156,8 @@ class CtEntry extends Entry {
 
     @Override
     protected Entry trueExit(int count, Object... args) throws ErrorEntryFreeException {
+
+        // 往下
         exitForContext(context, count, args);
 
         return parent;

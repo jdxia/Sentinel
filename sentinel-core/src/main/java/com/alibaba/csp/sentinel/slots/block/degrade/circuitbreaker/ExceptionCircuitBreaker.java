@@ -70,10 +70,14 @@ public class ExceptionCircuitBreaker extends AbstractCircuitBreaker {
         Throwable error = entry.getError();
         SimpleErrorCounter counter = stat.currentWindow().value();
         if (error != null) {
+            // 如果有异常就异常数+1
             counter.getErrorCount().add(1);
         }
+
+        // 统计的总数+1
         counter.getTotalCount().add(1);
 
+        // 算异常比例
         handleStateChangeWhenThresholdExceeded(error);
     }
 
@@ -81,17 +85,24 @@ public class ExceptionCircuitBreaker extends AbstractCircuitBreaker {
         if (currentState.get() == State.OPEN) {
             return;
         }
-        
+
+        // 看熔断器是不是半打开状态
         if (currentState.get() == State.HALF_OPEN) {
             // In detecting request
             if (error == null) {
+                // 如果没有异常, 之前是半打开的 变为 关闭
                 fromHalfOpenToClose();
             } else {
+                // 如果有异常, 之前是半打开的 变为 打开状态
                 fromHalfOpenToOpen(1.0d);
             }
             return;
         }
-        
+
+        /**
+         * 各种比例和统计计算
+         */
+
         List<SimpleErrorCounter> counters = stat.values();
         long errCount = 0;
         long totalCount = 0;
