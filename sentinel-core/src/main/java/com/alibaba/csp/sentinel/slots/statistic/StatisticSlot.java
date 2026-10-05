@@ -20,6 +20,7 @@ import java.util.Collection;
 import com.alibaba.csp.sentinel.node.Node;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlotEntryCallback;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlotExitCallback;
+import com.alibaba.csp.sentinel.slots.block.authority.AuthoritySlot;
 import com.alibaba.csp.sentinel.slots.block.flow.PriorityWaitException;
 import com.alibaba.csp.sentinel.spi.Spi;
 import com.alibaba.csp.sentinel.util.TimeUtil;
@@ -66,6 +67,7 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             // Do some checking.
             /**
              * 先调用下一个slot
+             * {@link AuthoritySlot}
              */
             fireEntry(context, resourceWrapper, node, count, prioritized, args);
 
@@ -74,9 +76,9 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
              */
 
             // Request passed, add thread count and pass count.
-            // 线程数新增1个
+            // 线程数新增1个, 增加 1 个已进入、尚未退出的调用
             node.increaseThreadNum();
-            // 通过的数量新增1个
+            // 增加 count 个通过量，普通调用一般是 1，批量申请可以大于 1
             node.addPassRequest(count);
 
             if (context.getCurEntry().getOriginNode() != null) {

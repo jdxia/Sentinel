@@ -70,7 +70,7 @@ public interface ProcessorSlot<T> {
      * 规则检查类的内部排序：授权（能不能访问）→ 系统级兜底（机器整体健康度）→ 单资源限流 → 熔断。全局性检查靠前，资源级检查靠后
      *
      * 最终链的执行流向
-     * entry:  NodeSelector → ClusterBuilder → Log → Statistic → Authority → System → Flow → CircuitBreaker → Degrade → (业务代码)
+     * entry:  NodeSelector → ClusterBuilder → Log → Statistic → Authority → System → ParamFlowSlot → Flow → DefaultCircuitBreakerSlot → Degrade → (业务代码)
      * exit:   反向回传（业务 RT 在 StatisticSlot.exit 记录）
      * 参考：{@link Constants}
      *

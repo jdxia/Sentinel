@@ -35,7 +35,15 @@ public class SystemSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode node, int count,
                       boolean prioritized, Object... args) throws Throwable {
+        /**
+         * 系统总共的QPS
+         */
         SystemRuleManager.checkSystem(resourceWrapper, count);
+
+        /**
+         * 下一个slot
+         * {@link com.alibaba.csp.sentinel.slots.block.flow.param.ParamFlowSlot}
+         */
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
 

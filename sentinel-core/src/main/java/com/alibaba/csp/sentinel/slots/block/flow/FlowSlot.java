@@ -161,6 +161,7 @@ public class FlowSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
                       boolean prioritized, Object... args) throws Throwable {
         checkFlow(resourceWrapper, context, node, count, prioritized);
 
+
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
 

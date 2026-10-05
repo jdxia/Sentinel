@@ -30,6 +30,9 @@ final class AuthorityRuleChecker {
     static boolean passCheck(AuthorityRule rule, Context context) {
         String requester = context.getOrigin();
 
+        /**
+         * 如果请求来源是空, 没设置好, 就直接跳过
+         */
         // Empty origin or empty limitApp will pass.
         if (StringUtil.isEmpty(requester) || StringUtil.isEmpty(rule.getLimitApp())) {
             return true;
@@ -53,10 +56,13 @@ final class AuthorityRuleChecker {
         }
 
         int strategy = rule.getStrategy();
+
+        // 看是不是在黑名单里面
         if (strategy == RuleConstant.AUTHORITY_BLACK && contain) {
             return false;
         }
 
+        // 是不是在白名单里面
         if (strategy == RuleConstant.AUTHORITY_WHITE && !contain) {
             return false;
         }

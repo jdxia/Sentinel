@@ -95,6 +95,7 @@ public final class SystemRuleManager {
     static {
         checkSystemStatus.set(false);
         statusListener = new SystemStatusListener();
+        // 每隔1s执行一次
         scheduler.scheduleAtFixedRate(statusListener, 0, 1, TimeUnit.SECONDS);
         currentProperty.addListener(listener);
     }
@@ -301,6 +302,9 @@ public final class SystemRuleManager {
             return;
         }
 
+        /**
+         * 系统总共的QPS 有没有超过
+         */
         // total qps
         double currentQps = Constants.ENTRY_NODE.passQps();
         if (currentQps + count > qps) {
@@ -313,6 +317,9 @@ public final class SystemRuleManager {
             throw new SystemBlockException(resourceWrapper.getName(), "thread");
         }
 
+        /**
+         * 平均响应时间限流
+         */
         double rt = Constants.ENTRY_NODE.avgRt();
         if (rt > maxRt) {
             throw new SystemBlockException(resourceWrapper.getName(), "rt");
@@ -325,6 +332,10 @@ public final class SystemRuleManager {
             }
         }
 
+        /**
+         * 判断cpu使用率
+         * 后台有定时任务, 会不断收集当前请求的使用情况, 每隔1s执行一次
+         */
         // cpu usage
         if (highestCpuUsageIsSet && getCurrentCpuUsage() > highestCpuUsage) {
             throw new SystemBlockException(resourceWrapper.getName(), "cpu");

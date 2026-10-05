@@ -23,6 +23,7 @@ import com.alibaba.csp.sentinel.node.DefaultNode;
 import com.alibaba.csp.sentinel.slotchain.AbstractLinkedProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
+import com.alibaba.csp.sentinel.slots.system.SystemSlot;
 import com.alibaba.csp.sentinel.spi.Spi;
 
 /**
@@ -37,7 +38,15 @@ public class AuthoritySlot extends AbstractLinkedProcessorSlot<DefaultNode> {
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode node, int count, boolean prioritized, Object... args)
         throws Throwable {
+
+        /**
+         * 看控制台那边有没有设置 黑白名单
+         */
         checkBlackWhiteAuthority(resourceWrapper, context);
+
+        /**
+         * 调用下一个slot {@link SystemSlot}
+         */
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
 
@@ -48,12 +57,16 @@ public class AuthoritySlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
     void checkBlackWhiteAuthority(ResourceWrapper resource, Context context) throws AuthorityException {
 
+        // 拿出授权规则
         List<AuthorityRule> rules = AuthorityRuleManager.getRules(resource.getName());
+
+        // 没有就直接返回
         if (rules == null) {
             return;
         }
 
         for (AuthorityRule rule : rules) {
+            // 如果设置了就进行验证, 这边会看请求到来源,  如果请求来源是空, 没设置好, 就直接跳过
             if (!AuthorityRuleChecker.passCheck(rule, context)) {
                 throw new AuthorityException(context.getOrigin(), rule);
             }

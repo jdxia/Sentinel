@@ -20,6 +20,7 @@ import com.alibaba.csp.sentinel.node.DefaultNode;
 import com.alibaba.csp.sentinel.slotchain.AbstractLinkedProcessorSlot;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
+import com.alibaba.csp.sentinel.slots.block.flow.FlowSlot;
 import com.alibaba.csp.sentinel.spi.Spi;
 
 import java.util.List;
@@ -37,7 +38,13 @@ public class ParamFlowSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode node, int count,
                       boolean prioritized, Object... args) throws Throwable {
+
+        // 往下
         checkFlow(resourceWrapper, count, args);
+
+        /**
+         * 下一个 slot 是 {@link FlowSlot}
+         */
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
 
@@ -62,9 +69,13 @@ public class ParamFlowSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
         if (args == null) {
             return;
         }
+
+        // 没有热点参数设置
         if (!ParamFlowRuleManager.hasRules(resourceWrapper.getName())) {
             return;
         }
+
+        // 把当前资源的热点参数规则拿出来
         List<ParamFlowRule> rules = ParamFlowRuleManager.getRulesOfResource(resourceWrapper.getName());
 
         for (ParamFlowRule rule : rules) {
@@ -73,6 +84,9 @@ public class ParamFlowSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             // Initialize the parameter metrics.
             ParameterMetricStorage.initParamMetricsFor(resourceWrapper, rule);
 
+            /**
+             * 判断要不要进行限流
+             */
             if (!ParamFlowChecker.passCheck(resourceWrapper, rule, count, args)) {
                 String triggeredParam = "";
                 if (args.length > rule.getParamIdx()) {
