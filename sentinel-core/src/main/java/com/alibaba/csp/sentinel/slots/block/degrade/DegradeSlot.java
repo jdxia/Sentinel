@@ -40,8 +40,16 @@ public class DegradeSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode node, int count,
                       boolean prioritized, Object... args) throws Throwable {
+        /**
+         * 这个是dashboard配置的
+         */
+
+        // 往下
         performChecking(context, resourceWrapper);
 
+        /**
+         * 下面就没有了
+         */
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
 
@@ -50,6 +58,11 @@ public class DegradeSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
         if (circuitBreakers == null || circuitBreakers.isEmpty()) {
             return;
         }
+
+        /**
+         *  可以看 {@link CircuitBreaker} 里面的注释
+         *
+         */
         for (CircuitBreaker cb : circuitBreakers) {
             if (!cb.tryPass(context)) {
                 throw new DegradeException(cb.getRule().getLimitApp(), cb.getRule());

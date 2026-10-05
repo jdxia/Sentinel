@@ -30,6 +30,7 @@ import com.alibaba.csp.sentinel.node.Node;
 import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
+import com.alibaba.csp.sentinel.slots.block.flow.controller.DefaultController;
 import com.alibaba.csp.sentinel.slots.clusterbuilder.ClusterBuilderSlot;
 import com.alibaba.csp.sentinel.util.StringUtil;
 import com.alibaba.csp.sentinel.util.function.Function;
@@ -53,7 +54,10 @@ public class FlowRuleChecker {
         Collection<FlowRule> rules = ruleProvider.apply(resource.getName());
         if (rules != null) {
             for (FlowRule rule : rules) {
-                // 如果有限流校验不通过, 就抛限流异常
+                /**
+                 * 如果有限流校验不通过, 就抛限流异常
+                 * 往下
+                 */
                 if (!canPassCheck(rule, context, node, count, prioritized)) {
                     throw new FlowException(rule.getLimitApp(), rule);
                 }
@@ -68,15 +72,22 @@ public class FlowRuleChecker {
 
     public boolean canPassCheck(/*@NonNull*/ FlowRule rule, Context context, DefaultNode node, int acquireCount,
                                                     boolean prioritized) {
+        /**
+         * 默认 limitApp 是 default
+         */
         String limitApp = rule.getLimitApp();
+
+        // 不满足
         if (limitApp == null) {
             return true;
         }
 
+        // 集群有关的
         if (rule.isClusterMode()) {
             return passClusterCheck(rule, context, node, acquireCount, prioritized);
         }
 
+        // 往下
         return passLocalCheck(rule, context, node, acquireCount, prioritized);
     }
 
@@ -87,6 +98,13 @@ public class FlowRuleChecker {
             return true;
         }
 
+        /**
+         * rule.getRater() 找到限流器, 看下 {@link TrafficShapingController} 里面的注释
+         * 限流器就是 流量整形控制器, 快速失败 , warm up, 排队等待
+         *
+         * 默认一般都是快速失败
+         * canPass 一般看 {@link DefaultController#canPass(Node, int, boolean)}
+         */
         return rule.getRater().canPass(selectedNode, acquireCount, prioritized);
     }
 

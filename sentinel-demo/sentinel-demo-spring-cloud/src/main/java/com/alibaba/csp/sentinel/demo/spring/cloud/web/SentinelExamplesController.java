@@ -2,6 +2,7 @@ package com.alibaba.csp.sentinel.demo.spring.cloud.web;
 
 import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.EntryType;
+import com.alibaba.csp.sentinel.Env;
 import com.alibaba.csp.sentinel.SphU;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
@@ -39,6 +40,8 @@ public class SentinelExamplesController {
     public static final String CIRCUIT_RESOURCE = "cloud-example-circuit";
     public static final String HOT_RESOURCE = "cloud-example-hot-product";
     public static final String MANUAL_RESOURCE = "cloud-example-manual";
+    public static final String PRIORITY_RESOURCE = "cloud-example-priority";
+    public static final String BATCH_RESOURCE = "cloud-example-batch";
 
     /**
      * QPS 限流：每秒阈值 2，超出时立即拒绝，不排队。
@@ -124,7 +127,57 @@ public class SentinelExamplesController {
     @GetMapping("/manual")
     public ResponseEntity<String> manual() {
         try (Entry entry = SphU.entry(MANUAL_RESOURCE, EntryType.OUT)) {
+            // 将需要保护的业务代码放在这里；申请失败时不会执行这个代码块。
             return ResponseEntity.ok("Manual entry passed");
+        } catch (BlockException exception) {
+            return handleFlowBlocked(exception);
+        }
+    }
+
+    /**
+     * 优先级申请：普通请求和优先请求共享每秒 2 份额度，prioritized 默认为 true。
+     * <pre>
+     * for i in {1..3}; do curl -s -w ' HTTP %{http_code}\n' 'http://127.0.0.1:18080/examples/priority?prioritized=false'; done
+     * sleep 0.6
+     * curl -i 'http://127.0.0.1:18080/examples/priority?prioritized=true'
+     * </pre>
+     * 普通请求超限立即返回 429；优先请求在本地 QPS + 快速失败规则下尝试预约后续统计窗口的额度，
+     * 等待时间必须小于 OccupyTimeoutProperty 的上限（默认 500ms），无法预约仍返回 429。
+     * 响应中的 entryWaitMs 是申请 Entry 的耗时，包含规则检查和可能发生的等待，不含业务耗时。
+     * Sph 是接口，通过 Env.sph 调用；只需优先申请 1 份时，也可以用 SphU.entryWithPriority。
+     */
+    @GetMapping("/priority")
+    public ResponseEntity<String> priority(@RequestParam(defaultValue = "true") boolean prioritized) {
+        long startNanos = System.nanoTime();
+        try (Entry entry = Env.sph.entryWithPriority(PRIORITY_RESOURCE, EntryType.OUT, 1, prioritized)) {
+            long entryWaitMs = (System.nanoTime() - startNanos) / 1_000_000;
+            return ResponseEntity.ok("Priority entry passed: prioritized=" + prioritized
+                + ", entryWaitMs=" + entryWaitMs);
+        } catch (BlockException exception) {
+            return handleFlowBlocked(exception);
+        }
+    }
+
+    /**
+     * 批量申请：资源每秒阈值 5，每次按 batchCount 消耗额度，而不是每个 HTTP 请求只算 1 次。
+     * <pre>
+     * curl -i 'http://127.0.0.1:18080/examples/batch?batchCount=3'
+     * curl -i 'http://127.0.0.1:18080/examples/batch?batchCount=3'
+     * curl -i 'http://127.0.0.1:18080/examples/batch?batchCount=6'
+     * </pre>
+     * 空闲后快速执行：第一批 3 份通过，第二批因剩余额度不足被整批拒绝；6 份大于阈值，始终拒绝。
+     * 申请不会拆分为部分成功，也不会提高规则阈值；业务只在获得整批额度后执行。
+     * 当前版本 Entry 保存了申请数量，try-with-resources 的 close() 会按原 batchCount 退出；
+     * exit 是结束统计，不会把已经消耗的 QPS 额度归还。
+     */
+    @GetMapping("/batch")
+    public ResponseEntity<String> batch(@RequestParam(defaultValue = "3") int batchCount) {
+        if (batchCount <= 0) {
+            return ResponseEntity.badRequest().body("batchCount must be positive");
+        }
+        try (Entry entry = SphU.entry(BATCH_RESOURCE, EntryType.OUT, batchCount)) {
+            // 在这里处理整批消息或任务；本例只返回数量，不产生外部业务影响。
+            return ResponseEntity.ok("Batch entry passed: batchCount=" + batchCount);
         } catch (BlockException exception) {
             return handleFlowBlocked(exception);
         }

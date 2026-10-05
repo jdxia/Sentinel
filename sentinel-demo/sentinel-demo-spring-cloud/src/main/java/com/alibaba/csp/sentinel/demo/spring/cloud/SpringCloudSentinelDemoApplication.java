@@ -46,7 +46,8 @@ public class SpringCloudSentinelDemoApplication {
 
     /**
      * 本地示例：IDE 的 Program arguments 填 --spring.profiles.active=examples，再运行 main。
-     * 访问 http://127.0.0.1:18080/examples/qps；其他接口的 curl 和预期结果见
+     * 手动代码块 /examples/manual、优先级 /examples/priority、批量额度 /examples/batch；
+     * curl 和预期结果见
      * {@link com.alibaba.csp.sentinel.demo.spring.cloud.web.SentinelExamplesController}。
      * examples 使用内存规则，不连接 Nacos；不加该参数时仍使用 application.yml 中的 Nacos 规则源。
      */

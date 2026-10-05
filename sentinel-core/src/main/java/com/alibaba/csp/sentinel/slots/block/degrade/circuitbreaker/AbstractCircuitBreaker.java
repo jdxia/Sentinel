@@ -34,11 +34,15 @@ public abstract class AbstractCircuitBreaker implements CircuitBreaker {
     protected static final double MAX_RATIO = 1.0d;
 
     protected final DegradeRule rule;
+
+    // rule.getTimeWindow() * 1000
     protected final int recoveryTimeoutMs;
 
     private final EventObserverRegistry observerRegistry;
 
     protected final AtomicReference<State> currentState = new AtomicReference<>(State.CLOSED);
+
+    // OPEN -> HALF_OPEN 的恢复时间点
     protected volatile long nextRetryTimestamp;
 
     public AbstractCircuitBreaker(DegradeRule rule) {
@@ -67,14 +71,23 @@ public abstract class AbstractCircuitBreaker implements CircuitBreaker {
 
     @Override
     public boolean tryPass(Context context) {
+        /**
+         * OPEN → HALF_OPEN 是惰性触发的，没有定时器。恢复时间到了之后，由第一个进来的请求 CAS 抢到“探测权”，CAS 失败的并发请求直接被拒
+         */
+
         // Template implementation.
         if (currentState.get() == State.CLOSED) {
+            // 关闭态全放
             return true;
         }
         if (currentState.get() == State.OPEN) {
+
+            // 到点后, 抢到 CAS 的那个请求作为探测放行
             // For half-open state we allow a request for probing.
             return retryTimeoutArrived() && fromOpenToHalfOpen(context);
         }
+
+        // HALF_OPEN: 只有探测请求本身已放行, 其余一律拒绝
         return false;
     }
 

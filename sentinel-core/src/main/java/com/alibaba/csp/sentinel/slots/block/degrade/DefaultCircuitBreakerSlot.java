@@ -40,17 +40,41 @@ public class DefaultCircuitBreakerSlot extends AbstractLinkedProcessorSlot<Defau
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode node, int count,
                       boolean prioritized, Object... args) throws Throwable {
+        /**
+         * 这个和 DegradeSlot 区别是
+         * 这个熔断slot只能 api设置, dashboard是不走这个的
+         *
+         * dashboard是走的 DegradeSlot
+         *
+         * DefaultCircuitBreakerSlot 是给框架/中间件团队在 SDK 层预埋全局兜底熔断用的预留扩展点（比如公司内部封装的 starter 想让所有资源默认都有熔断保护）, 还可以设置一些指定资源排除的
+         * 这个适合设置全局的
+         */
+
+        // 往下
         performChecking(context, resourceWrapper);
 
+        /**
+         * 下一个slot是 {@link DegradeSlot}
+         */
         fireEntry(context, resourceWrapper, node, count, prioritized, args);
     }
 
     private void performChecking(Context context, ResourceWrapper r) throws BlockException {
         // If user has set a degrade rule for the resource, the default rule will not be activated
+
+        /**
+         * 如果是 这个规则管理器 就跳过, 这个是 DegradeSlot 的, 不是这个的
+         *
+         * 如果是 DegradeSlot规则加载器设置的, 那全局的不生效
+         */
         if (DegradeRuleManager.hasConfig(r.getName())) {
             return;
         }
 
+        /**
+         * 找出所有的熔断器
+         * 可以看 {@link CircuitBreaker} 里面的注释
+         */
         List<CircuitBreaker> circuitBreakers = DefaultCircuitBreakerRuleManager.getDefaultCircuitBreakers(r.getName());
 
         if (circuitBreakers == null || circuitBreakers.isEmpty()) {
@@ -59,6 +83,9 @@ public class DefaultCircuitBreakerSlot extends AbstractLinkedProcessorSlot<Defau
 
         for (CircuitBreaker cb : circuitBreakers) {
             if (!cb.tryPass(context)) {
+                /**
+                 * 熔断降级的异常
+                 */
                 throw new DegradeException(cb.getRule().getLimitApp(), cb.getRule());
             }
         }

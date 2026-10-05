@@ -10,19 +10,6 @@ spring:
         # http://127.0.0.1:8720/getRules?type=flow 和 setRules 是 Sentinel 的命令端口能力
         port: 8720                  # → csp.sentinel.api.port
       web-context-unify: true     # 统一上下文
-      datasource:
-        flow-rules:
-          nacos:
-            # Nacos 是规则权威来源；生产环境通过环境变量覆盖地址和分组。
-            server-addr: ${NACOS_SERVER_ADDR:192.168.33.20:8848}
-            # 这里填写 Namespace ID，而不是控制台显示名称。
-            namespace: ${NACOS_NAMESPACE:sentinel}
-#            username: xx
-#            password: xx
-            group-id: ${NACOS_GROUP_ID:SENTINEL_GROUP}
-            data-id: ${spring.application.name}-flow-rules
-            data-type: json
-            rule-type: flow
   application:
     name: sentinel-demo-spring-cloud  # → csp.sentinel.app.name
   jmx:
@@ -56,3 +43,25 @@ server:
     threads:
       max: 200
       min-spare: 200
+
+---
+# 本地 examples 由 SentinelExamplesRuleConfig 加载内存规则，避免 Nacos 覆盖实验阈值。
+spring:
+  config:
+    activate:
+      on-profile: "!examples"
+  cloud:
+    sentinel:
+      datasource:
+        flow-rules:
+          nacos:
+            # Nacos 是规则权威来源；生产环境通过环境变量覆盖地址和分组。
+            server-addr: ${NACOS_SERVER_ADDR:192.168.33.20:8848}
+            # 这里填写 Namespace ID，而不是控制台显示名称。
+            namespace: ${NACOS_NAMESPACE:sentinel}
+#            username: xx
+#            password: xx
+            group-id: ${NACOS_GROUP_ID:SENTINEL_GROUP}
+            data-id: ${spring.application.name}-flow-rules
+            data-type: json
+            rule-type: flow

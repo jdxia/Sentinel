@@ -78,7 +78,7 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             // Request passed, add thread count and pass count.
             // 线程数新增1个, 增加 1 个已进入、尚未退出的调用
             node.increaseThreadNum();
-            // 增加 count 个通过量，普通调用一般是 1，批量申请可以大于 1
+            // QPS, 增加 count 个通过量，普通调用一般是 1，批量申请可以大于 1
             node.addPassRequest(count);
 
             if (context.getCurEntry().getOriginNode() != null) {
