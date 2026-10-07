@@ -76,7 +76,11 @@ public class LogSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
              * 这边可以写自己 slot的 退出逻辑
              */
 
-            // 执行下面slot退出方法
+            /**
+             * 执行下面slot退出方法
+             *
+             * 下一个slot是 {@link StatisticSlot#exit(Context, ResourceWrapper, int, Object...)}
+             */
             fireExit(context, resourceWrapper, count, args);
         } catch (Throwable e) {
             RecordLog.warn("Unexpected entry exit exception", e);

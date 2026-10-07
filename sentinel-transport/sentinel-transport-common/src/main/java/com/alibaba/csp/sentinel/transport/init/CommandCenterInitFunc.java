@@ -29,6 +29,7 @@ public class CommandCenterInitFunc implements InitFunc {
 
     @Override
     public void init() throws Exception {
+        //  SPI，选出实现（simple-http 模块就是 SimpleHttpCommandCenter）
         CommandCenter commandCenter = CommandCenterProvider.getCommandCenter();
 
         if (commandCenter == null) {
@@ -36,7 +37,10 @@ public class CommandCenterInitFunc implements InitFunc {
             return;
         }
 
+        // 把所有 @CommandMapping 的 CommandHandler 注册进 handlerMap —— SendMetricCommandHandler 的 name="metric" 就是在这里挂进去的
         commandCenter.beforeStart();
+
+        // 起线程 bind 8719, 占用则 8719+1 重试
         commandCenter.start();
         RecordLog.info("[CommandCenterInit] Starting command center: "
                 + commandCenter.getClass().getCanonicalName());

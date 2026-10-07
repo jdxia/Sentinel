@@ -161,7 +161,7 @@ public class CtSph implements Sph {
              * entry 方法就是把chain一个个去调用
              *
              * 数据准备必须最先：NodeSelectorSlot 和 ClusterBuilderSlot 负责把统计节点挂到 Context 上，后面所有 slot（尤其是规则检查）都从这些节点读运行时数据，所以排最前两位
-             * LogSlot 卡在规则检查前面是为了"截获"：看 LogSlot.java:46-50，它先 fireEntry 放行，在 catch (BlockException e) 里写 EagleEye 日志再重新抛出——排在所有规则 slot 之前，才能捕获到它们抛出的任何阻断异常
+             * LogSlot 卡在规则检查前面是为了"截获"：看 LogSlot，它先 fireEntry 放行，在 catch (BlockException e) 里写 EagleEye 日志再重新抛出——排在所有规则 slot 之前，才能捕获到它们抛出的任何阻断异常
              * StatisticSlot 的"先放行后统计"模型, 所以它必须在所有规则 slot 之前，才能统计到"通过/被拒"两种结果
              * 规则检查类的内部排序：授权（能不能访问）→ 系统级兜底（机器整体健康度）→ 单资源限流 → 熔断。全局性检查靠前，资源级检查靠后
              *

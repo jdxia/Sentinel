@@ -39,10 +39,18 @@ public final class InitExecutor {
      * The initialization will be executed only once.
      */
     public static void doInit() {
+        // 保证全进程只跑一次
         if (!initialized.compareAndSet(false, true)) {
             return;
         }
         try {
+            /**
+             * 从 classpath 上所有 jar 的 META-INF/services/com.alibaba.csp.sentinel.init.InitFunc 文件里扫出实现类
+             * 按 @InitOrder 排序后逐个 init()
+             *
+             * {@link com.alibaba.csp.sentinel.transport.init.CommandCenterInitFunc}
+             * {@link com.alibaba.csp.sentinel.transport.init.HeartbeatSenderInitFunc}
+             */
             List<InitFunc> initFuncs = SpiLoader.of(InitFunc.class).loadInstanceListSorted();
             List<OrderWrapper> initList = new ArrayList<OrderWrapper>();
             for (InitFunc initFunc : initFuncs) {

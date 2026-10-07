@@ -143,6 +143,9 @@ public class SphU {
      * @throws BlockException if the block criteria is met (e.g. metric exceeded the threshold of any rules)
      */
     public static Entry entry(String name, EntryType trafficType) throws BlockException {
+        /**
+         * 不仅要往下看, 还要看下  Env 类 它的 static 块
+         */
         return Env.sph.entry(name, trafficType, 1, OBJECTS0);
     }
 

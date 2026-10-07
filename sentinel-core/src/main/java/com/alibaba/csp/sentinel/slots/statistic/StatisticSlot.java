@@ -17,6 +17,7 @@ package com.alibaba.csp.sentinel.slots.statistic;
 
 import java.util.Collection;
 
+import com.alibaba.csp.sentinel.metric.extension.callback.MetricEntryCallback;
 import com.alibaba.csp.sentinel.node.Node;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlotEntryCallback;
 import com.alibaba.csp.sentinel.slotchain.ProcessorSlotExitCallback;
@@ -53,7 +54,7 @@ import com.alibaba.csp.sentinel.slots.block.BlockException;
 public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
     /**
-     * 统计slot
+     * 统计slot, 用于记录、统计不同纬度的 runtime 指标监控信息
      *
      * 进入时，先执行后续规则检查，再记录通过量和在途调用数。
      * 被规则拦截时，记录 block；正常放行的调用在退出时记录 RT、完成量和异常量。
@@ -95,6 +96,17 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
             // Handle pass event with registered entry callback handlers.
             for (ProcessorSlotEntryCallback<DefaultNode> handler : StatisticSlotCallbackRegistry.getEntryCallbacks()) {
+                /**
+                 * Dashboard 展示的数据：MetricTimerListener（sentinel-core）定时从滑动窗口采样 → MetricWriter 写 {app}-metrics.log 文件 → sentinel-transport 的 SendMetricCommandHandler 响应 Dashboard 的 /metric 拉取请求
+                 * 不是 MetricEntryCallback#onPass
+                 *
+                 * 第三方扩展（自定义指标上报）用的 SPI 钩子, 自己实现 MetricExtension，把 pass/block/RT 等事件推到自家的监控系统
+                 * {@link MetricEntryCallback#onPass(Context, ResourceWrapper, DefaultNode, int, Object...)}
+                 *
+                 * 热点参数维度的并发线程数 +1，按参数值存进 ParameterMetric.threadCountMap
+                 * 注意, 热点参数的 exit要带参数, 不然参数那边减不掉
+                 * {@link com.alibaba.csp.sentinel.slots.statistic.ParamFlowStatisticEntryCallback#onPass(com.alibaba.csp.sentinel.context.Context, com.alibaba.csp.sentinel.slotchain.ResourceWrapper, com.alibaba.csp.sentinel.node.DefaultNode, int, java.lang.Object...)}
+                 */
                 handler.onPass(context, resourceWrapper, node, count, args);
             }
         } catch (PriorityWaitException ex) {
@@ -151,8 +163,10 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             context.getCurEntry().setCompleteTimestamp(completeStatTime);
             long rt = completeStatTime - context.getCurEntry().getCreateTimestamp();
 
+            // 取出异常
             Throwable error = context.getCurEntry().getError();
 
+            // error != null → increaseExceptionQps
             // Record response time and success count.
             recordCompleteFor(node, count, rt, error);
             recordCompleteFor(context.getCurEntry().getOriginNode(), count, rt, error);

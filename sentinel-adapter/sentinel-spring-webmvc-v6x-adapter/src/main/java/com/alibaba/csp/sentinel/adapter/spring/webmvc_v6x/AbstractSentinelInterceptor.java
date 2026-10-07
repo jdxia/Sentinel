@@ -147,6 +147,8 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
             String contextName = getContextName(request);
 
             /**
+             * 结构可以通过调用 curl http://localhost:8719/tree?type=root 来显示
+             *
              * 以 contextName 进入上下文
              * origin 代表来源
              */
@@ -159,6 +161,9 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
              *
              * 这个里面会判断要不要流控, 如果有问题, 会抛异常走到下面
              * 往下
+             *
+             * 注意他的退出是在另一个里面 {@link AbstractSentinelInterceptor#afterCompletion(HttpServletRequest, HttpServletResponse, Object, Exception)}
+             * Sentinel 的统计是「进出配对」的：SphU.entry(...) 放行时做加法统计，entry.exit(count, args) 退出时做减法和收尾统计（RT、成功数、异常数、热点参数线程数递减）
              */
             Entry entry = SphU.entry(resourceName, ResourceTypeConstants.COMMON_WEB, EntryType.IN);
             request.setAttribute(baseWebMvcConfig.getRequestAttributeName(), entry);

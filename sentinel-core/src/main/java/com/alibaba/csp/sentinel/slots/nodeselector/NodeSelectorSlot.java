@@ -129,8 +129,11 @@ import java.util.Map;
 public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
 
     /**
-     * 注意这边 isSingleton = false, 并不是让所有资源共用一个 NodeSelectorSlot 单例
-     * 一个资源有多个 DefaultNode
+     * 注意这边 isSingleton = false
+     * SPI 加载时每条链各自 new 一个实例（不跨资源共享），所以 map,  是该资源链私有的；
+     * 而"一个资源多个 DefaultNode"的根因是 map 以 context 名为 key（:196-207），和 isSingleton 无直接因果
+     *
+     * 负责收集资源的路径，并将这些资源的调用路径，以树状结构存储起来，用于根据调用路径来限流降级
      */
 
     /**
@@ -162,7 +165,7 @@ public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
          * 有趣的是，我们使用上下文名称而不是资源名称作为映射键。
          * 请记住，相同的资源{@link ResourceWrapper#equals(Object)} 将共享
          * 无论在何种上下文中，全局都使用相同的{@link ProcessorSlotChain}。
-         * 所以如果代码进入 {@link #entry(Context, ResourceWrapper, DefaultNode, int, Object...)},资源名称必须相同，但上下文名称不能相同。
+         * 所以如果代码进入 {@link #entry(Context, ResourceWrapper, DefaultNode, int, Object...)},资源名称必须相同，但上下文名称不一定相同。
          * 如果我们使用 {@link com.alibaba.csp.sentinel.SphU#entry(String resource)}
          * 在不同的上下文中输入相同的资源，使用上下文名称作为映射键可以区分同一资源。在这种情况下，将创建多个 {@link DefaultNode},每个不同的上下文（不同的上下文名称）都有相同的资源名称。
          *
@@ -223,6 +226,9 @@ public class NodeSelectorSlot extends AbstractLinkedProcessorSlot<Object> {
 
     @Override
     public void exit(Context context, ResourceWrapper resourceWrapper, int count, Object... args) {
+        /**
+         * 下一个是 {@link ClusterBuilderSlot#exit(Context, ResourceWrapper, int, Object...)}
+         */
         fireExit(context, resourceWrapper, count, args);
     }
 }

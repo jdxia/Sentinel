@@ -50,6 +50,8 @@ public class FlowRuleChecker {
 
         /**
          * 根据当前的资源找到了一些限流的规则
+         *
+         * 第一次 会触发 {@link FlowRuleManager} 静态代码块, 这个里面有 dashboard怎么拿数据的逻辑
          */
         Collection<FlowRule> rules = ruleProvider.apply(resource.getName());
         if (rules != null) {

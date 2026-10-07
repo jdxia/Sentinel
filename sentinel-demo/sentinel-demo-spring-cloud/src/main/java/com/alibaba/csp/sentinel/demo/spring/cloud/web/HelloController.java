@@ -21,6 +21,8 @@ public class HelloController {
      * 创建 Sentinel Entry，并在调用结束后退出 Entry，因此该方法只保留业务逻辑。在 Dashboard 中配置规则前，
      * 至少调用一次此接口，让 Sentinel 指标记录 {@value #RESOURCE_NAME} 资源。</p>
      *
+     * http://127.0.0.1:18080/hello
+     *
      * @return Demo 的成功响应
      */
     @GetMapping(value = "/hello", produces = MediaType.TEXT_PLAIN_VALUE)

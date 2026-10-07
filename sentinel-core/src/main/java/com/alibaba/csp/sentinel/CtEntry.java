@@ -116,9 +116,9 @@ class CtEntry extends Entry {
 
                     /**
                      * 挨个调用 每个 slot的exit方法
-                     *  NodeSelector → ClusterBuilder → Log → Statistic → Authority → System → ParamFlowSlot → Flow → DefaultCircuitBreakerSlot → Degrade → (业务代码)
+                     *  NodeSelector → ClusterBuilder → Log → Statistic → Authority → System → ParamFlowSlot → Flow → DefaultCircuitBreakerSlot → Degrade
                      *
-                     *  {@link NodeSelectorSlot}
+                     *  {@link NodeSelectorSlot#exit(Context, ResourceWrapper, int, Object...)}
                      */
                     chain.exit(context, resourceWrapper, count, args);
                 }

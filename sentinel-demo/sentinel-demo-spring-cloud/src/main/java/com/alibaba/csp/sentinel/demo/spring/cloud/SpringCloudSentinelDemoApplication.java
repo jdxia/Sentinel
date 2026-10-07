@@ -33,6 +33,11 @@ public class SpringCloudSentinelDemoApplication {
      */
 
     /**
+     * - ~/logs/csp/sentinel-record.log：能看到 [InitExecutor] Found init func: ...CommandCenterInitFunc、...HeartbeatSenderInitFunc（入口①的证据）；
+     * - ~/logs/csp/command-center.log：[CommandCenter] Begin listening at port 8719；
+     * - ~/logs/csp/ 目录出现 test-metrics.log.pid*.xxx 且每秒追加；
+     * - 浏览器直接访问 http://localhost:8719/metric?startTime=0 能拿到明文指标——这就是 Dashboard 消费的原始接口。
+     *
      * 自动装配是在 spring cloud alibaba {@link SentinelWebAutoConfiguration#sentinelWebMvcConfig()} 这里集成的, 这个是 spring cloud alibaba才会, boot不会
      * 拦截器的顺序是 {@link SentinelWebMvcConfigurer}  默认顺序是 Ordered.HIGHEST_PRECEDENCE（Integer.MIN_VALUE）最优先的位置
      *
@@ -45,13 +50,76 @@ public class SpringCloudSentinelDemoApplication {
      */
 
     /**
-     * 本地示例：IDE 的 Program arguments 填 --spring.profiles.active=examples，再运行 main。
-     * 手动代码块 /examples/manual、优先级 /examples/priority、批量额度 /examples/batch；
-     * curl 和预期结果见
-     * {@link com.alibaba.csp.sentinel.demo.spring.cloud.web.SentinelExamplesController}。
-     * examples 使用内存规则，不连接 Nacos；不加该参数时仍使用 application.yml 中的 Nacos 规则源。
+     * http://127.0.0.1:18080/examples/qps 触发下
      */
     public static void main(String[] args) {
         SpringApplication.run(SpringCloudSentinelDemoApplication.class, args);
     }
+
+    /**
+     * 注意一个坑的点
+     *
+     * 先理解 Tracer.trace 到底做了什么
+     *
+     * 看 Tracer.java:67-76 和 110-116：
+     *
+     * public static void traceContext(Throwable e, Context context) {
+     *     ...
+     *     traceEntryInternal(e, context.getCurEntry());   // 拿「当前 context 的当前 entry」
+     * }
+     *
+     * private static void traceEntryInternal(Throwable e, Entry entry) {
+     *     if (entry == null) {
+     *         return;
+     *     }
+     *     entry.setError(e);      // 仅仅是打个标记！
+     * }
+     *
+     * Tracer.trace(ex) 本身不产生任何统计，只是 curEntry.setError(ex) 打标记。真正把异常数累加进 Node 的时机在 exit 时（StatisticSlot.java:154-157）：
+     *
+     * Throwable error = context.getCurEntry().getError();   // exit 时刻才读取标记
+     * recordCompleteFor(node, count, rt, error);            // error != null → increaseExceptionQps
+     *
+     * 所以正确的时序必须是：业务抛异常 → catch 里 Tracer.trace（打标记）→ exit（读标记、统计异常数）。
+     *
+     * try-with-resources 打乱了这个顺序
+     *
+     * Java 语言规范（JLS 14.20.3）规定，try-with-resources 编译后等价于：
+     *
+     * // try (Entry entry = SphU.entry(res, args)) {
+     * //     bizCode();
+     * // } catch (BizException ex) {
+     * //     Tracer.trace(ex);
+     * // }
+     *
+     * Entry entry = SphU.entry(res, args);
+     * Throwable primary = null;
+     * try {
+     *     bizCode();                          // ① 抛出 BizException
+     * } catch (Throwable t) {
+     *     primary = t;
+     *     throw t;
+     * } finally {
+     *     if (entry != null) {
+     *         try { entry.close(); }          // ② 先执行 close（= exit）
+     *         catch (Throwable sup) { primary.addSuppressed(sup); }
+     *     }
+     * }
+     * // ③ 然后才轮到用户写的 catch → Tracer.trace(ex)
+     *
+     * 即执行顺序是：业务异常 → close() → catch 块。close 抢在 catch 之前执行，导致两步连锁失效：
+     *
+     * 第一失效点（② 中）：close() → CtEntry.exitForContext（CtEntry.java:93-143）：
+     * - chain.exit(...) → StatisticSlot.exit 读 getError() —— 此时你还没执行 catch，标记还是 null，异常数、以及退出回调全部执行完毕
+     * - context.setCurEntry(parent)（129 行）—— curEntry 被改回父 entry
+     * - 若是根 entry 且用的是自动创建的默认 context：ContextUtil.exit()（136 行）→ contextHolder.set(null)（ContextUtil.java:210-215）—— ThreadLocal 里的 context 直接被清空
+     *
+     * 第二失效点（③ 中）：你的 catch 里 Tracer.trace(ex)：
+     * - 默认 context 场景：ContextUtil.getContext() 返回 null → traceContext 里 context == null 直接 return —— 异常彻底丢失
+     * - 嵌套调用场景（A 方法 entry 里调 B 方法 entry）：curEntry 已经是父 entry → parent.setError(ex) —— 异常被记到父资源头上，子资源异常数丢失、父资源异常数虚高（如果依赖异常比例熔断 DEGRADE_GRADE_EXCEPTION_RATIO，会错误地熔断父资源）
+     * - 退一万步说，即使还能拿到这个 entry：setError 也已经晚了，StatisticSlot.exit 早已执行完，没有人会再去读这个标记
+     *
+     * 结论：try-with-resources 的 catch 块里调 Tracer.trace(ex)，异常统计 100% 失效。这是语义层面的死结，无法靠保存参数解决，1.8.9 上依然存在。
+     */
+
 }

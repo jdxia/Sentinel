@@ -17,6 +17,7 @@ package com.alibaba.csp.sentinel.demo.spring.webmvc;
 
 import java.util.Collections;
 
+import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.AbstractSentinelInterceptor;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.SentinelWebInterceptor;
 import com.alibaba.csp.sentinel.annotation.aspectj.SentinelResourceAspect;
 import com.alibaba.csp.sentinel.demo.spring.webmvc.config.MyBootInterceptorConfig;
@@ -25,6 +26,8 @@ import com.alibaba.csp.sentinel.init.InitExecutor;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRule;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowRuleManager;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
@@ -56,7 +59,15 @@ public class WebMvcDemoApplication {
          */
 
         /**
+         * 推荐看cloud那个
+         *
+         * 拦截器的顺序是 {@link SentinelWebMvcConfigurer}  默认顺序是 Ordered.HIGHEST_PRECEDENCE（Integer.MIN_VALUE）最优先的位置
+         *
          * 拦截器是 {@link SentinelWebInterceptor}
+         * 1. 核心看继承的 {@link AbstractSentinelInterceptor#preHandle(HttpServletRequest, HttpServletResponse, Object)}
+         * 2. 还有后置的 {@link AbstractSentinelInterceptor#afterCompletion(HttpServletRequest, HttpServletResponse, Object, Exception)}
+         * 3. 异步servlet的后置 {@link AbstractSentinelInterceptor#afterConcurrentHandlingStarted(HttpServletRequest, HttpServletResponse, Object)}
+         *
          * 切面是 {@link SentinelResourceAspect}
          *
          * 这个是boot, 我自己手动集成的, {@link MyBootInterceptorConfig} 和 spring cloud alibaba的不一样

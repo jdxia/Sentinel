@@ -32,6 +32,8 @@ public class Env {
     public static final Sph sph = new CtSph();
 
     static {
+
+        // 往下
         // If init fails, the process will exit.
         InitExecutor.doInit();
     }

@@ -19,7 +19,10 @@ import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.EntryType;
 import com.alibaba.csp.sentinel.SphU;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
+import com.alibaba.csp.sentinel.context.Context;
+import com.alibaba.csp.sentinel.slotchain.ResourceWrapper;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
+import com.alibaba.csp.sentinel.slots.statistic.StatisticSlot;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -99,6 +102,10 @@ public class SentinelResourceAspect extends AbstractSentinelAspectSupport {
              * exceptionsToIgnore 检查，命中则直接抛 fallback → defaultFallback → 抛出原异常
              */
             if (exceptionBelongsTo(ex, annotation.exceptionsToTrace())) {
+                /**
+                 * 把异常放到 context 里面的属性
+                 * 真正用的地方是 {@link StatisticSlot#exit(Context, ResourceWrapper, int, Object...)}
+                 */
                 traceException(ex);
                 return handleFallback(pjp, annotation, ex);
             }

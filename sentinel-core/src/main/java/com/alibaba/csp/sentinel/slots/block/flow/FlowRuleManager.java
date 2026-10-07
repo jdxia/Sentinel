@@ -61,6 +61,14 @@ public class FlowRuleManager {
 
     static {
         currentProperty.addListener(LISTENER);
+
+        /**
+         * 启动的定时任务把内存窗口落盘成 metrics.log，而 dashboard 只认这个文件, dashboard的数据只看这个文件
+         * dashboard 是 增量拉取  /metric?startTime=上次位置
+         *
+         * 读配置 csp.sentinel.metric.log.flush.interval，<= 0 直接不启动
+         * 否则 scheduleAtFixedRate(new MetricTimerListener(), 0, flushInterval, SECONDS)（默认 1s）
+         */
         startMetricTimerListener();
     }
 
@@ -81,6 +89,7 @@ public class FlowRuleManager {
                 SentinelConfig.METRIC_FLUSH_INTERVAL);
             return;
         }
+        // 每整秒来一次，把黑板刚写满的那一秒抄进账本（metrics.log，一秒一行，带 .idx 目录索引）。进行中的半秒不抄（还没写完）
         SCHEDULER.scheduleAtFixedRate(new MetricTimerListener(), 0, flushInterval, TimeUnit.SECONDS);
     }
 
