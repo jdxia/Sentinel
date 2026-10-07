@@ -6,6 +6,8 @@ import com.alibaba.csp.sentinel.Env;
 import com.alibaba.csp.sentinel.SphU;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -33,6 +35,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping(value = "/examples", produces = MediaType.TEXT_PLAIN_VALUE)
 public class SentinelExamplesController {
+
+    private static final Logger logger = LoggerFactory.getLogger(SentinelExamplesController.class);
 
     public static final String QPS_RESOURCE = "cloud-example-qps";
     public static final String CONCURRENCY_RESOURCE = "cloud-example-concurrency";
@@ -68,7 +72,9 @@ public class SentinelExamplesController {
         exceptionsToIgnore = InterruptedException.class)
     public ResponseEntity<String> concurrency() throws InterruptedException {
         try {
+            logger.info("===========> method: {}, preSleep", this.getClass().getSimpleName());
             Thread.sleep(500);
+            logger.info("===========> method: {}, postSleep", this.getClass().getSimpleName());
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw exception;
@@ -93,6 +99,7 @@ public class SentinelExamplesController {
     @SentinelResource(value = CIRCUIT_RESOURCE, blockHandler = "handleCircuitBlocked",
         fallback = "handleBusinessFailure")
     public ResponseEntity<String> circuit(@RequestParam(defaultValue = "false") boolean fail) {
+        logger.info("===========> method: {}, preFail", this.getClass().getSimpleName());
         if (fail) {
             throw new IllegalStateException("Simulated downstream failure");
         }
@@ -111,6 +118,7 @@ public class SentinelExamplesController {
     @GetMapping("/hot")
     @SentinelResource(value = HOT_RESOURCE, blockHandler = "handleHotBlocked")
     public ResponseEntity<String> hot(@RequestParam(defaultValue = "100") long productId) {
+        logger.info("===========> method: {}", this.getClass().getSimpleName());
         return ResponseEntity.ok("Hot product passed: " + productId);
     }
 
@@ -120,16 +128,25 @@ public class SentinelExamplesController {
      * for i in {1..10}; do curl -s -w ' HTTP %{http_code}\n' http://127.0.0.1:18080/examples/manual; done
      * </pre>
      * 快速请求出现 200 和 429 / FlowException。Entry 必须在同一线程中按后进先出顺序退出，
-     * try-with-resources 自动调用 exit。若添加可能失败的业务，需在 Entry 退出前用
-     * Tracer.traceEntry(exception, entry) 记录业务异常；手动 API 不会像注解切面那样自动记录。
+     * finally 里显式调用 exit，不用 try-with-resources：close() 会先于 catch 执行，
+     * 若添加可能失败的业务，catch 里的 Tracer.traceEntry(exception, entry) 将晚于 exit，
+     * 异常统计失效；手动 try/finally 保证先记录异常再退出。手动 API 不会像注解切面那样自动记录。
      */
     @GetMapping("/manual")
     public ResponseEntity<String> manual() {
-        try (Entry entry = SphU.entry(MANUAL_RESOURCE, EntryType.OUT)) {
+        logger.info("===========> method: {}, preAction", this.getClass().getSimpleName());
+        Entry entry = null;
+        try {
+            entry = SphU.entry(MANUAL_RESOURCE, EntryType.OUT);
+            logger.info("===========> method: {}, action === entry", this.getClass().getSimpleName());
             // 将需要保护的业务代码放在这里；申请失败时不会执行这个代码块。
             return ResponseEntity.ok("Manual entry passed");
         } catch (BlockException exception) {
             return handleFlowBlocked(exception);
+        } finally {
+            if (entry != null) {
+                entry.exit(1);
+            }
         }
     }
 
@@ -148,12 +165,25 @@ public class SentinelExamplesController {
     @GetMapping("/priority")
     public ResponseEntity<String> priority(@RequestParam(defaultValue = "true") boolean prioritized) {
         long startNanos = System.nanoTime();
-        try (Entry entry = Env.sph.entryWithPriority(PRIORITY_RESOURCE, EntryType.OUT, 1, prioritized)) {
+        logger.info("===========> method: {}, preAction", this.getClass().getSimpleName());
+        Entry entry = null;
+        try {
+            /**
+             * 不推荐用 Env.sph
+             * 一般不要用 Env.sph 除非是 需要的参数组合 SphU 没包装, 框架集成/测试场景需要面向 Sph 接口编程
+             */
+            entry = Env.sph.entryWithPriority(PRIORITY_RESOURCE, EntryType.OUT, 1, prioritized);
+
+            logger.info("===========> method: {}, action === entryWithPriority", this.getClass().getSimpleName());
             long entryWaitMs = (System.nanoTime() - startNanos) / 1_000_000;
             return ResponseEntity.ok("Priority entry passed: prioritized=" + prioritized
                 + ", entryWaitMs=" + entryWaitMs);
         } catch (BlockException exception) {
             return handleFlowBlocked(exception);
+        } finally {
+            if (entry != null) {
+                entry.exit(1);
+            }
         }
     }
 
@@ -166,19 +196,31 @@ public class SentinelExamplesController {
      * </pre>
      * 空闲后快速执行：第一批 3 份通过，第二批因剩余额度不足被整批拒绝；6 份大于阈值，始终拒绝。
      * 申请不会拆分为部分成功，也不会提高规则阈值；业务只在获得整批额度后执行。
-     * 当前版本 Entry 保存了申请数量，try-with-resources 的 close() 会按原 batchCount 退出；
+     * exit 按申请时的 batchCount 配对退出（Entry 已保存申请数量，无参 exit() 携带的数量相同）；
      * exit 是结束统计，不会把已经消耗的 QPS 额度归还。
      */
     @GetMapping("/batch")
     public ResponseEntity<String> batch(@RequestParam(defaultValue = "3") int batchCount) {
+
+        logger.info("===========> method: {}, preAction", this.getClass().getSimpleName());
+
         if (batchCount <= 0) {
             return ResponseEntity.badRequest().body("batchCount must be positive");
         }
-        try (Entry entry = SphU.entry(BATCH_RESOURCE, EntryType.OUT, batchCount)) {
+        Entry entry = null;
+        try {
+            entry = SphU.entry(BATCH_RESOURCE, EntryType.OUT, batchCount);
+
+            logger.info("===========> method: {}, action === SphU", this.getClass().getSimpleName());
+
             // 在这里处理整批消息或任务；本例只返回数量，不产生外部业务影响。
             return ResponseEntity.ok("Batch entry passed: batchCount=" + batchCount);
         } catch (BlockException exception) {
             return handleFlowBlocked(exception);
+        } finally {
+            if (entry != null) {
+                entry.exit(batchCount);
+            }
         }
     }
 

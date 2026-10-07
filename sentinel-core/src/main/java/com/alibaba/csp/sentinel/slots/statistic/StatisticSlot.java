@@ -110,6 +110,12 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
                 handler.onPass(context, resourceWrapper, node, count, args);
             }
         } catch (PriorityWaitException ex) {
+            /**
+             * FlowSlot 的特例：prioritized 请求占用下一周期令牌后放行
+             *
+             * 只加线程数，不算 pass
+             */
+
             node.increaseThreadNum();
             if (context.getCurEntry().getOriginNode() != null) {
                 // Add count for origin node.
@@ -125,6 +131,13 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
                 handler.onPass(context, resourceWrapper, node, count, args);
             }
         } catch (BlockException e) {
+
+            /**
+             * 被规则拦截
+             * setBlockError(e) + increaseBlockQps(count)，然后 throw e 重新抛出
+             * 这边是异常标记的生产方
+             */
+
             // Blocked, set block exception to current entry.
             context.getCurEntry().setBlockError(e);
 
@@ -157,13 +170,14 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
     public void exit(Context context, ResourceWrapper resourceWrapper, int count, Object... args) {
         Node node = context.getCurNode();
 
+        // 只统计"放行过"的请求
         if (context.getCurEntry().getBlockError() == null) {
             // Calculate response time (use completeStatTime as the time of completion).
             long completeStatTime = TimeUtil.currentTimeMillis();
             context.getCurEntry().setCompleteTimestamp(completeStatTime);
             long rt = completeStatTime - context.getCurEntry().getCreateTimestamp();
 
-            // 取出异常
+            // 取出异常, 读 Tracer.trace 打的标记
             Throwable error = context.getCurEntry().getError();
 
             // error != null → increaseExceptionQps
@@ -174,6 +188,10 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
                 recordCompleteFor(Constants.ENTRY_NODE, count, rt, error);
             }
         }
+
+        /**
+         * 这边是异常标记的消费方
+         */
 
         // Handle exit event with registered exit callback handlers.
         Collection<ProcessorSlotExitCallback> exitCallbacks = StatisticSlotCallbackRegistry.getExitCallbacks();
@@ -189,10 +207,15 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
         if (node == null) {
             return;
         }
+
+        // RT 和成功数：不管有没有异常都记
         node.addRtAndSuccess(rt, batchCount);
+
+        // 收回 entry 时加的线程数
         node.decreaseThreadNum();
 
         if (error != null && !(error instanceof BlockException)) {
+            // 有标记且非 BlockException → 记异常数
             node.increaseExceptionQps(batchCount);
         }
     }

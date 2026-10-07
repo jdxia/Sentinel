@@ -77,6 +77,7 @@ public class SpringCloudSentinelDemoApplication {
 
     /**
      * http://127.0.0.1:18080/examples/qps 触发下
+     * http://127.0.0.1:18080/examples/manual
      */
     public static void main(String[] args) {
         SpringApplication.run(SpringCloudSentinelDemoApplication.class, args);
@@ -87,7 +88,7 @@ public class SpringCloudSentinelDemoApplication {
      *
      * 先理解 Tracer.trace 到底做了什么
      *
-     * 看 Tracer.java:67-76 和 110-116：
+     * 看 Tracer.java
      *
      * public static void traceContext(Throwable e, Context context) {
      *     ...
@@ -145,7 +146,7 @@ public class SpringCloudSentinelDemoApplication {
      * - 嵌套调用场景（A 方法 entry 里调 B 方法 entry）：curEntry 已经是父 entry → parent.setError(ex) —— 异常被记到父资源头上，子资源异常数丢失、父资源异常数虚高（如果依赖异常比例熔断 DEGRADE_GRADE_EXCEPTION_RATIO，会错误地熔断父资源）
      * - 退一万步说，即使还能拿到这个 entry：setError 也已经晚了，StatisticSlot.exit 早已执行完，没有人会再去读这个标记
      *
-     * 结论：try-with-resources 的 catch 块里调 Tracer.trace(ex)，异常统计 100% 失效。这是语义层面的死结，无法靠保存参数解决，1.8.9 上依然存在。
+     * 结论：try-with-resources 的 catch 块里调 Tracer.trace(ex)，异常统计 100% 失效。这是语义层面的死结，无法靠保存参数解决
      */
 
 }
