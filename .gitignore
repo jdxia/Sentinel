@@ -29,6 +29,9 @@ bin/
 *.DS_Store
 Thumbs.db
 
+# Demo runtime logs (logback-spring.xml writes into logs/)
+logs/
+
 # flattened pom file
 .flattened-pom.xml
 node_modules/

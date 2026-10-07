@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    应用 Logback 配置。
+
+    结构：
+    1. root：应用业务日志，控制台 + logs/app.log；
+    2. sentinelRecordLog / sentinelCommandCenterLog：被 config.log 包下的 SPI 实现
+       接管的 Sentinel 内部日志，控制台 + logs/sentinel.log，代替默认 JUL 写的
+       ~/logs/csp/sentinel-record.log、command-center.log。
+       跨天归档由 maxHistory/totalSizeCap 清理，解决 JUL DateFileLogHandler
+       历史文件无限累积的问题。
+
+    日志目录 logs/ 相对进程工作目录（本项目的 IDEA run 配置是项目根，
+    java -jar 时是启动命令所在目录），项目根 .gitignore 已忽略 logs/。
+-->
+<configuration>
+    <!--
+        复用 Spring Boot 官方默认：CONSOLE_LOG_PATTERN/FILE_LOG_PATTERN、
+        *_LOG_CHARSET 等变量，以及 defaults.xml 里对 tomcat/hibernate 等
+        框架 logger 的降噪配置。自己不重定义 pattern，输出格式与 Boot 默认一致。
+    -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <!-- 官方控制台 appender，名字固定为 CONSOLE，pattern 即 Boot 默认（带颜色） -->
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <property name="LOG_DIR" value="logs"/>
+
+    <!-- 应用日志：按天 + 10MB 滚动，gz 压缩，保留 7 天、总量封顶 200MB -->
+    <appender name="APP_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/app.log</file>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>${FILE_LOG_CHARSET}</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/app.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>200MB</totalSizeCap>
+            <!-- 启动即清理过期归档，学习项目常重启，这是验证清理策略最直接的时机 -->
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+    </appender>
+
+    <!--
+        Sentinel 日志：只承接被接管的两个 logger，单独分文件是为了排查
+        "Sentinel 为什么没生效"时不用在应用日志里捞。
+        Dashboard 每秒来拉一次监控，command-center 这一路日志量不小，独立容量上限更稳。
+    -->
+    <appender name="SENTINEL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/sentinel.log</file>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>${FILE_LOG_CHARSET}</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/sentinel.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
+        </rollingPolicy>
+    </appender>
+
+    <!--
+        logger 名必须与 AbstractSlf4jSentinelLogger 子类构造器传入的名字一致，
+        写错不会报错，只是不生效（回落走 root 的 appender）。
+        additivity=false：不向 root 传播，避免同一条日志在 app.log 里再写一份。
+    -->
+    <logger name="sentinelRecordLog" level="info" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="SENTINEL_FILE"/>
+    </logger>
+    <logger name="sentinelCommandCenterLog" level="info" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="SENTINEL_FILE"/>
+    </logger>
+
+    <root level="info">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="APP_FILE"/>
+    </root>
+</configuration>
