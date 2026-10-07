@@ -43,7 +43,11 @@ public final class RuleConstant {
     public static final int AUTHORITY_BLACK = 1;
 
     public static final int STRATEGY_DIRECT = 0;
+
+    // 关联模式
     public static final int STRATEGY_RELATE = 1;
+
+    // 链路模式
     public static final int STRATEGY_CHAIN = 2;
 
     public static final int CONTROL_BEHAVIOR_DEFAULT = 0;

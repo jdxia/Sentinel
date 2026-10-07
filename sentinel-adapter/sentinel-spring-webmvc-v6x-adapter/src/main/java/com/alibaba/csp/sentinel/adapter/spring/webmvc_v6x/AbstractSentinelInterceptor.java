@@ -143,6 +143,8 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
              * 看 {@link SentinelWebInterceptor#getContextName(HttpServletRequest)}
              * 统一 context 返回 sentinel_spring_web_context, 归入同一个 Web 入口分组下统计
              * 按 URL 分 context 返回具体的url
+             *
+             * 注意: 链路整合就是整合的这个
              */
             String contextName = getContextName(request);
 

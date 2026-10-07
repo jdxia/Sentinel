@@ -122,10 +122,13 @@ public class FlowRuleChecker {
             return ClusterBuilderSlot.getClusterNode(refResource);
         }
 
+        // 链路模式
         if (strategy == RuleConstant.STRATEGY_CHAIN) {
+            // 比较 refResource 和 contextName
             if (!refResource.equals(context.getName())) {
                 return null;
             }
+            // 用该链路下的 DefaultNode 统计来判流
             return node;
         }
         // No node.
