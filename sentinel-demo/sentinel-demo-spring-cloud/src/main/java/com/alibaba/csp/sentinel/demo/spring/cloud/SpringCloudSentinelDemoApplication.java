@@ -28,16 +28,11 @@ public class SpringCloudSentinelDemoApplication {
      * csp.sentinel.log.dir Sentinel 日志和本地指标文件目录, 默认 ${user.home}/logs/csp/
      * csp.sentinel.log.level Sentinel 内部日志等级, 默认 INFO
      * csp.sentinel.metric.file.single.size 单个指标文件最大字节数 默认 52428800，即 50 MiB
-     * csp.sentinel.metric.file.total.count 每个资源保留的指标文件数, 默认6
+     * csp.sentinel.metric.file.total.count 每个资源保留的指标文件数, 默认6, 直接决定 dashboard 能回看多久
      * csp.sentinel.metric.flush.interval 指标落盘任务周期，单位秒, 1；小于等于 0 时不启动该定时任务
      */
 
     /**
-     * - ~/logs/csp/sentinel-record.log：能看到 [InitExecutor] Found init func: ...CommandCenterInitFunc、...HeartbeatSenderInitFunc（入口①的证据）；
-     * - ~/logs/csp/command-center.log：[CommandCenter] Begin listening at port 8719；
-     * - ~/logs/csp/ 目录出现 test-metrics.log.pid*.xxx 且每秒追加；
-     * - 浏览器直接访问 http://localhost:8719/metric?startTime=0 能拿到明文指标——这就是 Dashboard 消费的原始接口。
-     *
      * 自动装配是在 spring cloud alibaba {@link SentinelWebAutoConfiguration#sentinelWebMvcConfig()} 这里集成的, 这个是 spring cloud alibaba才会, boot不会
      * 拦截器的顺序是 {@link SentinelWebMvcConfigurer}  默认顺序是 Ordered.HIGHEST_PRECEDENCE（Integer.MIN_VALUE）最优先的位置
      *
@@ -47,6 +42,37 @@ public class SpringCloudSentinelDemoApplication {
      * 3. 异步servlet的后置 {@link AbstractSentinelInterceptor#afterConcurrentHandlingStarted(HttpServletRequest, HttpServletResponse, Object)}
      *
      * 切面是 {@link SentinelResourceAspect}
+     */
+
+    /**
+     * ~/logs/csp/   文件, 写入是异步的
+     * |
+     * | 这2个 跨天历史文件无限累积, 要么定时任务直接删 rm是安全的, 要么 Logger SPI 接管
+     * ├── sentinel-record.log.2026-10-07            ← 通用运行日志（JUL）, 初始化过程（[InitExecutor] Found init func）、规则加载/变更（[FlowRuleManager] Flow rules loaded）、metric 文件滚动（[MetricWriter] New metric file created）。排查“Sentinel 为什么没生效”的第一站
+     * ├── command-center.log.2026-10-07             ← 8719 服务日志（JUL，transport）, 每次 HTTP 命令处理、异常
+     * |
+     * ├── sentinel-block.log                        ← 被拦截请求明细（EagleEye）
+     * ├── myApp-metrics.log.2026-10-07              ← 监控数据（MetricWriter，dashboard 的数据源）
+     * ├── myApp-metrics.log.2026-10-07.idx          ← 它的索引
+     * ├── sentinel-cluster.log                      ← 集群限流统计（可选，EagleEye）
+     * ├── sentinel-cluster-client.log / sentinel-server.log
+     * └── *.lck                                     ← JUL FileHandler 的锁文件
+     *
+     * ┌────────────────────────────────────┬──────────────────────┬─────────────────────────┬─────────────────────────────────────┬────────────────────────────┐
+     * │                文件                   │        清理者           │        触发时机            │                策略                     │        默认占用上限        │
+     * ├────────────────────────────────────┼──────────────────────┼─────────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+     * │ {app}-metrics.log.N + .idx             │ ✅ MetricWriter 自动  │ 每次滚动（跨天/超50MB）     │ 总数≤6，删最老（含索引）                 │ ~300MB（可配）             │
+     * ├────────────────────────────────────┼──────────────────────┼─────────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+     * │ sentinel-record.log.*                  │ ⚠️ 半自动             │ 每天零点                   │ 当天 200MB×4 循环覆盖；跨天文件不删       │ 每天最多 800MB，无限累积   │
+     * ├────────────────────────────────────┼──────────────────────┼─────────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+     * │ command-center.log.*                   │ ⚠️ 半自动             │ 同上                       │ 同上                                    │ 同上                       │
+     * ├────────────────────────────────────┼──────────────────────┼─────────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+     * │ sentinel-block.log                     │ ✅ EagleEye 自动      │ 写满 300MB                 │ 保留 3 备份                             │ ~1.2GB（仅大量被拦时才涨） │
+     * ├────────────────────────────────────┼──────────────────────┼─────────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+     * │ cluster*.log / sentinel-server.log     │ ✅ EagleEye 自动      │ 写满 300MB                 │ 保留 3 备份                             │ 仅集群限流模式             │
+     * ├────────────────────────────────────┼──────────────────────┼─────────────────────────┼─────────────────────────────────────┼────────────────────────────┤
+     * │ *.lck                                  │ JVM 退出时删           │ —                          │ kill -9 可能残留，可手动删              │ 极小                       │
+     * └────────────────────────────────────┴──────────────────────┴─────────────────────────┴─────────────────────────────────────┴────────────────────────────┘
      */
 
     /**

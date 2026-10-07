@@ -10,6 +10,8 @@ spring:
         # http://127.0.0.1:8720/getRules?type=flow 和 setRules 是 Sentinel 的命令端口能力
         port: 8720                  # → csp.sentinel.api.port
       web-context-unify: true     # 统一上下文
+      metric:
+        file-single-size: 128M  #  metrics 单文件上限, 默认50M
   application:
     name: sentinel-demo-spring-cloud  # → csp.sentinel.app.name
   jmx:
