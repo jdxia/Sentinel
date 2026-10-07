@@ -35,8 +35,19 @@ public class SystemSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
     @Override
     public void entry(Context context, ResourceWrapper resourceWrapper, DefaultNode node, int count,
                       boolean prioritized, Object... args) throws Throwable {
+
         /**
-         * 系统总共的QPS
+         * Field	说明	默认值
+         * highestSystemLoad	load1 触发值，用于触发自适应控制阶段	-1 (不生效)
+         * avgRt	所有入口流量的平均响应时间	-1 (不生效)
+         * maxThread	入口流量的最大并发数	-1 (不生效)
+         * qps	所有入口资源的 QPS	-1 (不生效)
+         * highestCpuUsage	当前系统的 CPU 使用率（0.0-1.0）	-1 (不生效)
+         */
+
+
+        /**
+         * 系统总共的阈值规则
          */
         SystemRuleManager.checkSystem(resourceWrapper, count);
 

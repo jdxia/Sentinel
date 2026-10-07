@@ -46,6 +46,17 @@ public class DegradeSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
          * 这个是dashboard配置的
          */
 
+        /**
+         * Field	说明	默认值
+         * resource	资源名，即规则的作用对象
+         * grade	熔断策略，支持慢调用比例/异常比例/异常数策略	慢调用比例
+         * count	慢调用比例模式下为慢调用临界 RT（超出该值计为慢调用）；异常比例/异常数模式下为对应的阈值
+         * timeWindow	熔断时长，单位为 s
+         * minRequestAmount	熔断触发的最小请求数，请求数小于该值时即使异常比率超出阈值也不会熔断（1.7.0 引入）	5
+         * statIntervalMs	统计时长（单位为 ms），如 60*1000 代表分钟级（1.8.0 引入）	1000 ms
+         * slowRatioThreshold	慢调用比例阈值，仅慢调用比例模式有效（1.8.0 引入）
+         */
+
         // 往下
         performChecking(context, resourceWrapper);
 

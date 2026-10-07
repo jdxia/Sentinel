@@ -162,6 +162,16 @@ public class FlowSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
                       boolean prioritized, Object... args) throws Throwable {
 
         /**
+         * Field	说明	默认值
+         * resource	资源名，资源名是限流规则的作用对象
+         * count	限流阈值
+         * grade	限流阈值类型，QPS 或线程数模式	QPS 模式
+         * limitApp	流控针对的调用来源	default，代表不区分调用来源
+         * strategy	调用关系限流策略：直接、链路、关联	根据资源本身（直接）
+         * controlBehavior	流控效果（直接拒绝 / 排队等待 / 慢启动模式），不支持按调用关系限流	直接拒绝
+         */
+
+        /**
          * 检查限流
          */
         checkFlow(resourceWrapper, context, node, count, prioritized);

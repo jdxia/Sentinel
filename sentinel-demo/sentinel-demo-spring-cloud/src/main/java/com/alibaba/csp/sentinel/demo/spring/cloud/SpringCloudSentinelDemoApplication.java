@@ -84,7 +84,7 @@ public class SpringCloudSentinelDemoApplication {
     }
 
     /**
-     * 注意一个坑的点
+     * 注意一个坑的点, 业务的异常要让sentinel感知到,  如果是熔断降级, 基于异常数来做的话, 是不能用 try with resources的
      *
      * 先理解 Tracer.trace 到底做了什么
      *
@@ -147,6 +147,25 @@ public class SpringCloudSentinelDemoApplication {
      * - 退一万步说，即使还能拿到这个 entry：setError 也已经晚了，StatisticSlot.exit 早已执行完，没有人会再去读这个标记
      *
      * 结论：try-with-resources 的 catch 块里调 Tracer.trace(ex)，异常统计 100% 失效。这是语义层面的死结，无法靠保存参数解决
+     *
+     * 或者
+     *
+     * try (Entry entry = SphU.entry("resource")) {
+     *     try {
+     *         bizCode();
+     *     } catch (RuntimeException ex) {
+     *         // 此时 resource 的 Entry 尚未关闭，且仍是当前 Entry。
+     *         Tracer.trace(ex);
+     *         // trace(Throwable e, int count)：记录业务异常（非 BlockException 异常）
+     *         // traceEntry(Throwable, int, Entry)：向传入 entry 对应的资源记录业务异常（非 BlockException 异常），异常数目为传入的 count
+     *
+     *         throw ex;
+     *     }
+     * } catch (BlockException ex) {
+     *     handleBlocked(ex);
+     * }
+     *
+     * 这样, 必须用  Tracer.trace(ex);
      */
 
 }

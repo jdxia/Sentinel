@@ -34,6 +34,20 @@ import static com.alibaba.csp.sentinel.slots.block.RuleConstant.DEGRADE_GRADE_EX
  */
 public class ExceptionCircuitBreaker extends AbstractCircuitBreaker {
 
+    /**
+     * 统计结构：自带一个 LeapArray<SimpleErrorCounter>（sampleCount=1，窗口长 statIntervalMs），独立于 StatisticSlot 的全局滑窗。每个桶就是两个 LongAdder：errorCount / totalCount。
+     *
+     * onRequestComplete 流程（:65-118）：
+     * 1. 取 entry.getError()——业务异常必须经 Tracer.trace(e) 记录才会出现在这里（BlockException 不会被统计）；
+     * 2. error != null 则 errorCount+1，totalCount 恒 +1；
+     * 3. handleStateChangeWhenThresholdExceeded：
+     *    - OPEN：直接返回；
+     *    - HALF_OPEN：探测请求 error == null → CLOSED，否则 → OPEN；
+     *    - CLOSED：汇总所有桶，totalCount < minRequestAmount 则不判定（防低流量误熔断）；RATIO 模式下 curCount = errCount/totalCount，最后 curCount > threshold 触发熔断。
+     *
+     * 两个必须知道的特判）：判定是严格大于。若阈值配 1.0（全部失败才熔断），错误率恰好 100% 时 > 不成立，所以专门加了 == MAX_RATIO 的等值特判。生产中配 0.5 阈值时，错误率正好 50% 是不触发的。
+     */
+
     private final int strategy;
     private final int minRequestAmount;
     private final double threshold;

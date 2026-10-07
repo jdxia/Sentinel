@@ -4,6 +4,7 @@ import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.EntryType;
 import com.alibaba.csp.sentinel.Env;
 import com.alibaba.csp.sentinel.SphU;
+import com.alibaba.csp.sentinel.Tracer;
 import com.alibaba.csp.sentinel.annotation.SentinelResource;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import org.slf4j.Logger;
@@ -128,25 +129,27 @@ public class SentinelExamplesController {
      * for i in {1..10}; do curl -s -w ' HTTP %{http_code}\n' http://127.0.0.1:18080/examples/manual; done
      * </pre>
      * 快速请求出现 200 和 429 / FlowException。Entry 必须在同一线程中按后进先出顺序退出，
-     * finally 里显式调用 exit，不用 try-with-resources：close() 会先于 catch 执行，
-     * 若添加可能失败的业务，catch 里的 Tracer.traceEntry(exception, entry) 将晚于 exit，
-     * 异常统计失效；手动 try/finally 保证先记录异常再退出。手动 API 不会像注解切面那样自动记录。
+     * close() 会先于外层 catch 执行，所以业务异常的上报放在 try 块内部的内层 catch：
+     * 先 Tracer.trace 打标记，close() 里的 exit 才能读取标记并记入异常数，
+     * 异常比例/异常数熔断才会触发（注解切面会自动做这件事）。
      */
     @GetMapping("/manual")
     public ResponseEntity<String> manual() {
         logger.info("===========> method: {}, preAction", this.getClass().getSimpleName());
-        Entry entry = null;
-        try {
-            entry = SphU.entry(MANUAL_RESOURCE, EntryType.OUT);
+        try (Entry entry = SphU.entry(MANUAL_RESOURCE, EntryType.OUT)) {
             logger.info("===========> method: {}, action === entry", this.getClass().getSimpleName());
             // 将需要保护的业务代码放在这里；申请失败时不会执行这个代码块。
-            return ResponseEntity.ok("Manual entry passed");
+            try {
+                return ResponseEntity.ok("Manual entry passed");
+            } catch (Throwable exception) {
+                // 手动埋点必须显式上报业务异常（注解切面会自动做）：先打标记，
+                // 内层 catch 先于 close() 执行，exit 才能读取标记并统计异常数，异常类熔断随之生效。
+                Tracer.trace(exception);
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("Manual business failure: " + exception.getMessage());
+            }
         } catch (BlockException exception) {
             return handleFlowBlocked(exception);
-        } finally {
-            if (entry != null) {
-                entry.exit(1);
-            }
         }
     }
 
@@ -166,24 +169,25 @@ public class SentinelExamplesController {
     public ResponseEntity<String> priority(@RequestParam(defaultValue = "true") boolean prioritized) {
         long startNanos = System.nanoTime();
         logger.info("===========> method: {}, preAction", this.getClass().getSimpleName());
-        Entry entry = null;
-        try {
-            /**
-             * 不推荐用 Env.sph
-             * 一般不要用 Env.sph 除非是 需要的参数组合 SphU 没包装, 框架集成/测试场景需要面向 Sph 接口编程
-             */
-            entry = Env.sph.entryWithPriority(PRIORITY_RESOURCE, EntryType.OUT, 1, prioritized);
-
+        /**
+         * 不推荐用 Env.sph
+         * 一般不要用 Env.sph 除非是 需要的参数组合 SphU 没包装, 框架集成/测试场景需要面向 Sph 接口编程
+         */
+        try (Entry entry = Env.sph.entryWithPriority(PRIORITY_RESOURCE, EntryType.OUT, 1, prioritized)) {
             logger.info("===========> method: {}, action === entryWithPriority", this.getClass().getSimpleName());
             long entryWaitMs = (System.nanoTime() - startNanos) / 1_000_000;
-            return ResponseEntity.ok("Priority entry passed: prioritized=" + prioritized
-                + ", entryWaitMs=" + entryWaitMs);
+            try {
+                return ResponseEntity.ok("Priority entry passed: prioritized=" + prioritized
+                    + ", entryWaitMs=" + entryWaitMs);
+            } catch (Throwable exception) {
+                // 手动埋点必须显式上报业务异常（注解切面会自动做）：先打标记，
+                // 内层 catch 先于 close() 执行，exit 才能读取标记并统计异常数，异常类熔断随之生效。
+                Tracer.trace(exception);
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("Priority business failure: " + exception.getMessage());
+            }
         } catch (BlockException exception) {
             return handleFlowBlocked(exception);
-        } finally {
-            if (entry != null) {
-                entry.exit(1);
-            }
         }
     }
 
@@ -196,8 +200,8 @@ public class SentinelExamplesController {
      * </pre>
      * 空闲后快速执行：第一批 3 份通过，第二批因剩余额度不足被整批拒绝；6 份大于阈值，始终拒绝。
      * 申请不会拆分为部分成功，也不会提高规则阈值；业务只在获得整批额度后执行。
-     * exit 按申请时的 batchCount 配对退出（Entry 已保存申请数量，无参 exit() 携带的数量相同）；
-     * exit 是结束统计，不会把已经消耗的 QPS 额度归还。
+     * close() 自动 exit，携带 Entry 保存的 batchCount；exit 是结束统计，
+     * 不会把已经消耗的 QPS 额度归还。
      */
     @GetMapping("/batch")
     public ResponseEntity<String> batch(@RequestParam(defaultValue = "3") int batchCount) {
@@ -207,20 +211,21 @@ public class SentinelExamplesController {
         if (batchCount <= 0) {
             return ResponseEntity.badRequest().body("batchCount must be positive");
         }
-        Entry entry = null;
-        try {
-            entry = SphU.entry(BATCH_RESOURCE, EntryType.OUT, batchCount);
-
+        try (Entry entry = SphU.entry(BATCH_RESOURCE, EntryType.OUT, batchCount)) {
             logger.info("===========> method: {}, action === SphU", this.getClass().getSimpleName());
 
             // 在这里处理整批消息或任务；本例只返回数量，不产生外部业务影响。
-            return ResponseEntity.ok("Batch entry passed: batchCount=" + batchCount);
+            try {
+                return ResponseEntity.ok("Batch entry passed: batchCount=" + batchCount);
+            } catch (Throwable exception) {
+                // 手动埋点必须显式上报业务异常（注解切面会自动做）：先打标记，
+                // 内层 catch 先于 close() 执行，exit 才能读取标记并统计异常数，异常类熔断随之生效。
+                Tracer.trace(exception);
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("Batch business failure: " + exception.getMessage());
+            }
         } catch (BlockException exception) {
             return handleFlowBlocked(exception);
-        } finally {
-            if (entry != null) {
-                entry.exit(batchCount);
-            }
         }
     }
 

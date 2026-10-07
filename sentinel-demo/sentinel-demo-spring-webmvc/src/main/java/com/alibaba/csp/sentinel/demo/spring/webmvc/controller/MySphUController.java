@@ -17,6 +17,7 @@ package com.alibaba.csp.sentinel.demo.spring.webmvc.controller;
 
 import com.alibaba.csp.sentinel.Entry;
 import com.alibaba.csp.sentinel.SphU;
+import com.alibaba.csp.sentinel.Tracer;
 import com.alibaba.csp.sentinel.slots.block.BlockException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -43,7 +44,15 @@ public class MySphUController {
     public ResponseEntity<String> apiSphU() {
         // try-with-resources 会在正常返回或业务异常时自动退出 Entry，避免遗漏 entry.exit() 污染当前调用链。
         try (Entry ignored = SphU.entry(RESOURCE_NAME)) {
-            return ResponseEntity.ok("Passed by Sentinel");
+            try {
+                return ResponseEntity.ok("Passed by Sentinel");
+            } catch (Throwable exception) {
+                // 手动埋点必须显式上报业务异常（注解切面会自动做）：先打标记，
+                // 内层 catch 先于 close() 执行，exit 才能读取标记并统计异常数，异常类熔断随之生效。
+                Tracer.trace(exception);
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body("Business failure: " + exception.getMessage());
+            }
         } catch (BlockException ignored) {
             // BlockException 是预期的限流结果；返回 429，让调用方可以明确区分“限流拒绝”和“正常成功”。
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body("Blocked by Sentinel");

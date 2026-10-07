@@ -43,6 +43,12 @@ public class AuthoritySlot extends AbstractLinkedProcessorSlot<DefaultNode> {
         throws Throwable {
 
         /**
+         * resource：资源名，即限流规则的作用对象
+         * limitApp：对应的黑名单/白名单，不同 origin 用 , 分隔，如 appA,appB
+         * strategy：限制模式，AUTHORITY_WHITE 为白名单模式，AUTHORITY_BLACK 为黑名单模式，默认为白名单模式
+         */
+
+        /**
          * 看控制台那边有没有设置 黑白名单
          */
         checkBlackWhiteAuthority(resourceWrapper, context);
