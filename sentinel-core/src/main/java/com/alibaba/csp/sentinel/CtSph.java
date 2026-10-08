@@ -374,7 +374,11 @@ public class CtSph implements Sph {
     public Entry entryWithType(String name, int resourceType, EntryType entryType, int count, Object[] args)
         throws BlockException {
 
-        // 往下
+        /**
+         * 注意这边的 prioritized 是 false
+         *
+         * 往下
+         */
         return entryWithType(name, resourceType, entryType, count, false, args);
     }
 

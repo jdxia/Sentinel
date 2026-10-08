@@ -17,6 +17,7 @@ package com.alibaba.csp.sentinel.slots.block.flow.controller;
 
 import com.alibaba.csp.sentinel.node.Node;
 import com.alibaba.csp.sentinel.node.OccupyTimeoutProperty;
+import com.alibaba.csp.sentinel.node.StatisticNode;
 import com.alibaba.csp.sentinel.slots.block.RuleConstant;
 import com.alibaba.csp.sentinel.slots.block.flow.PriorityWaitException;
 import com.alibaba.csp.sentinel.slots.block.flow.TrafficShapingController;
@@ -48,6 +49,13 @@ public class DefaultController implements TrafficShapingController {
     @Override
     public boolean canPass(Node node, int acquireCount, boolean prioritized) {
         /**
+         * 这边有优先级
+         *
+         * web dashboard配置, 走AbstractSentinelInterceptor#preHandle 这个的话, 限流都是不优先的
+         */
+
+
+        /**
          * QPS 模式取 node.passQps()，线程模式取 curThreadNum()
          */
         int curCount = avgUsedTokens(node);
@@ -58,16 +66,50 @@ public class DefaultController implements TrafficShapingController {
          * 如果大于设置的总数
          */
         if (curCount + acquireCount > count) {
+
+            /**
+             * 这个类是 直接拒绝策略
+             * QPS + 显示api调用优先级限流
+             *
+             * 优先级限流 借的是这个资源的未来配额，影响该资源的所有后续请求，不分调用方、不分 context
+             */
             if (prioritized && grade == RuleConstant.FLOW_GRADE_QPS) {
                 long currentTime;
                 long waitInMs;
                 currentTime = TimeUtil.currentTimeMillis();
+
+                /**
+                 * 算"要等多久" {@link StatisticNode#tryOccupyNext(long, int, double)}
+                 *
+                 * 它从窗口里最早的 bucket 往现在扫描：假设把本请求记到未来的某个 bucket，
+                 * 扣掉届时将滑出窗口的老 bucket 的量（- windowPass），窗口总量是否仍 ≤ maxCount。
+                 * 找到第一个装得下的未来窗口，返回"等到那个窗口需要多少毫秒"（waitInMs）；
+                 * 装不下或超过 occupyTimeout，就返回 500（= 借不到，回到 DefaultController.java 的判断，走拒绝）
+                 */
                 waitInMs = node.tryOccupyNext(currentTime, acquireCount, count);
+
+                /**
+                 * 写"借据"
+                 */
+
+                /**
+                 * waitInMs 500 是 occupyTimeout 的默认值，是借用的上限（等待超过它就失败、直接拒绝），不是返回值
+                 * 成功借用的 waitInMs 一定是 (0, 500) 区间内的某个格子对齐值；返回值恰好等于 500 就表示失败
+                 *
+                 * 这种sleep
+                 */
                 if (waitInMs < OccupyTimeoutProperty.getOccupyTimeout()) {
+                    // 预扣未来窗口配额
                     node.addWaitingRequest(currentTime + waitInMs, acquireCount);
+                    // 记一笔"借来的通过量"
                     node.addOccupiedPass(acquireCount);
+                    // 睡到那个未来窗口
                     sleep(waitInMs);
 
+                    /**
+                     * 通知上层：等完会放行
+                     * PriorityWaitException 不是失败：它沿 chain 冒泡，被排在 FlowSlot 前面的 StatisticSlot 捕获吞掉 ——只加线程数、不记 pass（因为 pass 已预扣到未来窗口，避免重复计数），然后业务代码正常执行。业务方无感知，最多觉得这次调用慢了几百毫秒
+                     */
                     // PriorityWaitException indicates that the request will pass after waiting for {@link @waitInMs}.
                     throw new PriorityWaitException(waitInMs);
                 }
