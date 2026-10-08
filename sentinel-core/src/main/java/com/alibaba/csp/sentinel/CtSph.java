@@ -128,6 +128,16 @@ public class CtSph implements Sph {
             return new CtEntry(resourceWrapper, null, context);
         }
 
+        /**
+         * sentinel_default_context
+         * 作用
+         * 在当前线程没有 Context 时，你直接写
+         * try (Entry entry = SphU.entry("queryOrder")) {
+         *     // 查询订单
+         * }
+         *
+         * Sentinel 会用 sentinel_default_context
+         */
         if (context == null) {
             // Using default context.
             context = InternalContextUtil.internalEnter(Constants.CONTEXT_DEFAULT_NAME);
@@ -141,7 +151,8 @@ public class CtSph implements Sph {
         /**
          * 看 ProcessorSlot 里面的注释
          *
-         * 把这个形成一个 slot chain, 往下
+         * 把这个形成一个 slot chain, 最多 MAX_SLOT_CHAIN_SIZE 6000, 如果超过就不创建slot, 就是不限流了
+         * 往下
          */
         ProcessorSlot<Object> chain = lookProcessChain(resourceWrapper);
 
@@ -229,6 +240,7 @@ public class CtSph implements Sph {
             synchronized (LOCK) {
                 chain = chainMap.get(resourceWrapper);
                 if (chain == null) {
+                    // 默认 6000
                     // Entry size limit.
                     if (chainMap.size() >= Constants.MAX_SLOT_CHAIN_SIZE) {
                         return null;

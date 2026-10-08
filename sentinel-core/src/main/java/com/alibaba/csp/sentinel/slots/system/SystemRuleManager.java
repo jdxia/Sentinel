@@ -328,6 +328,12 @@ public final class SystemRuleManager {
             throw new SystemBlockException(resourceWrapper.getName(), "rt");
         }
 
+        /**
+         * load1 超过阈值后，再进行容量判断
+         * Linux/Unix 环境中按需启用
+         *
+         * Load 参考值是 CPU 核数 × 2.5, 它适合作为实验起点，不能代替容量验证
+         */
         // load. BBR algorithm.
         if (highestSystemLoadIsSet && getCurrentSystemAvgLoad() > highestSystemLoad) {
             if (!checkBbr(currentThread)) {
