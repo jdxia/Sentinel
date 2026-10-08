@@ -296,6 +296,8 @@ public class SphU {
     public static Entry entry(String name, int resourceType, EntryType trafficType) throws BlockException {
 
         /**
+         * 这个时候也会初始化 Env 静态代码块, 从而执行 InitExecutor.doInit(), 也就是 spring.cloud.sentinel.eager = true能提前初始化
+         *
          * {@link  CtSph#entryWithType(String, int, EntryType, int, Object[])}
          * 往下
          */

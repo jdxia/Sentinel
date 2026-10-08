@@ -17,7 +17,7 @@ public class SpringCloudSentinelDemoApplication {
 
     /**
      * 一些配置的key, 在spring cloud alibaba里面写在  spring.cloud.sentinel.*
-     * {@link SentinelApplicationContextInitializer} 是在这里设置的
+     * {@link SentinelApplicationContextInitializer} 是在这里设置的, spring.cloud.sentinel.eager=true 也是在这里
      *
      * csp.sentinel.config.file 指定 Sentinel 原生配置文件路径, 默认读取 classpath 下的 sentinel.properties
      * csp.sentinel.app.type  应用类型, 默认 0，普通应用；网关等特定场景可能用不同类型
