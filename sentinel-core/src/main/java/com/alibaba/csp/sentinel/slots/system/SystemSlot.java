@@ -48,6 +48,9 @@ public class SystemSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
 
         /**
          * 系统总共的阈值规则
+         *
+         * 只处理入的限流 IN
+         * OUT不处理
          */
         SystemRuleManager.checkSystem(resourceWrapper, count);
 

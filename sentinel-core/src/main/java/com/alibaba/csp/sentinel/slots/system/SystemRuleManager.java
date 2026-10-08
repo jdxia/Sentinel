@@ -311,6 +311,9 @@ public final class SystemRuleManager {
             throw new SystemBlockException(resourceWrapper.getName(), "qps");
         }
 
+        /**
+         * 实际并不能体现线程
+         */
         // total thread
         int currentThread = Constants.ENTRY_NODE.curThreadNum();
         if (currentThread > maxThread) {

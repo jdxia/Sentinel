@@ -184,6 +184,16 @@ public class StatisticSlot extends AbstractLinkedProcessorSlot<DefaultNode> {
             // Record response time and success count.
             recordCompleteFor(node, count, rt, error);
             recordCompleteFor(context.getCurEntry().getOriginNode(), count, rt, error);
+
+            /**
+             * IN 类型，额外更新总入口统计
+             * 这个总入口是 位于当前 JVM 内，供当前 Sentinel 实例共享
+             *
+             * OUT只比IN少 Constants.ENTRY_NODE 总入口统计 和 SystemRule
+             *
+             * 注意: 如果一个url是 /api/submitOrder 这个url里面也有个资源是in类型的 queryProduct. 那一次请求过来, Constants.ENTRY_NODE 总入口统计 是记2次
+             * 所以sentinel的 QPS和线程并不是真的对应实际的, 建议只有入口设置IN, 非入口不要设置IN
+             */
             if (resourceWrapper.getEntryType() == EntryType.IN) {
                 recordCompleteFor(Constants.ENTRY_NODE, count, rt, error);
             }
