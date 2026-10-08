@@ -1,17 +1,31 @@
 spring:
   cloud:
     sentinel:
+      # 默认开启
+      # MVC 接入、注解切面、数据源处理器, 如果关闭 编程式的还可以的
+      enabled: true
       # 在启动期间初始化传输客户端，以便应用程序出现在仪表板中
       # 在第一个业务请求到来之前
       eager: true  # 如果为true, initializer 末尾会直接调 InitExecutor.doInit()，不用等第一次请求
       transport:
+        # 默认空字符, 配置内网可达的地址
         dashboard: 127.0.0.1:8678  # → csp.sentinel.dashboard.server
         # 默认 8719 这是dashboard和当前项目通信端口
         # http://127.0.0.1:8720/getRules?type=flow 和 setRules 是 Sentinel 的命令端口能力
-        port: 8720                  # → csp.sentinel.api.port
+        port: 8720                  # → csp.sentinel.api.portp
+        # 底层自动选择本机地址, 心跳的ip
+        # clientIp: 192.168.33.30
+        # 心跳, 默认10000毫秒
+        heartbeatIntervalMs: 10000
       web-context-unify: true     # 统一上下文
       metric:
         file-single-size: 134217728  # 128MB = 128 × 1024 × 1024,  metrics 单文件上限, 默认50M
+        file-total-count: 3   # 默认6个, 指标文件保留数量
+      log:
+        # 同机同应用多进程共享目录时考虑开启
+        switch-pid: true      # 是否启用按 PID 区分相关日志文件名
+        # 底层默认 ${user.home}/logs/csp/ , Sentinel 日志目录
+        # dir: xxx
   application:
     name: sentinel-demo-spring-cloud  # → csp.sentinel.app.name
   jmx:

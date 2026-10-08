@@ -61,6 +61,8 @@ public class SentinelExamplesController {
 
     /**
      * http://127.0.0.1:18080/examples/circuit?fail=true
+     *
+     * 注解默认都是 OUT 出站限流, 建议只有入口设置 IN 限流, 避免QPS和线程统计问题
      */
     @GetMapping("/circuit")
     @SentinelResource(value = CIRCUIT_RESOURCE, blockHandler = "handleCircuitBlocked",
@@ -75,6 +77,8 @@ public class SentinelExamplesController {
 
     /**
      *http://127.0.0.1:18080/examples/hot?productId=100
+     *
+     * 注解默认都是 OUT 出站限流, 建议只有入口设置 IN 限流, 避免QPS和线程统计问题
      */
     @GetMapping("/hot")
     @SentinelResource(value = HOT_RESOURCE, blockHandler = "handleHotBlocked")
@@ -89,6 +93,8 @@ public class SentinelExamplesController {
     @GetMapping("/manual")
     public ResponseEntity<String> manual() {
         logger.info("===========> method: {}, preAction", this.getClass().getSimpleName());
+
+        // OUT 出站限流, 建议只有入口设置 IN 限流, 避免QPS和线程统计问题
         try (Entry entry = SphU.entry(MANUAL_RESOURCE, EntryType.OUT)) {
             logger.info("===========> method: {}, action === entry", this.getClass().getSimpleName());
             // 将需要保护的业务代码放在这里；申请失败时不会执行这个代码块。
@@ -118,6 +124,8 @@ public class SentinelExamplesController {
         /**
          * 不推荐用 Env.sph
          * 一般不要用 Env.sph 除非是 需要的参数组合 SphU 没包装, 框架集成/测试场景需要面向 Sph 接口编程
+         *
+         * OUT 出站限流, 建议只有入口设置 IN 限流, 避免QPS和线程统计问题
          */
         try (Entry entry = Env.sph.entryWithPriority(PRIORITY_RESOURCE, EntryType.OUT, 1, prioritized)) {
             logger.info("===========> method: {}, action === entryWithPriority", this.getClass().getSimpleName());
@@ -148,6 +156,8 @@ public class SentinelExamplesController {
         if (batchCount <= 0) {
             return ResponseEntity.badRequest().body("batchCount must be positive");
         }
+
+        // OUT 出站限流, 建议只有入口设置 IN 限流, 避免QPS和线程统计问题
         try (Entry entry = SphU.entry(BATCH_RESOURCE, EntryType.OUT, batchCount)) {
             logger.info("===========> method: {}, action === SphU", this.getClass().getSimpleName());
 
