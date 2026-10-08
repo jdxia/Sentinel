@@ -7,6 +7,9 @@ spring:
       # 在启动期间初始化传输客户端，以便应用程序出现在仪表板中
       # 在第一个业务请求到来之前
       eager: true  # 如果为true, initializer 末尾会直接调 InitExecutor.doInit()，不用等第一次请求
+      # 建议开启
+      # 默认是false, 在自动生成的 HTTP 接口资源名中，加上请求方法前缀, GET /orders => 如果是false, /orders => 如果是true, 就是 GET:/orders
+      httpMethodSpecify: true
       transport:
         # 默认空字符, 配置内网可达的地址
         dashboard: 127.0.0.1:8678  # → csp.sentinel.dashboard.server

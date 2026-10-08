@@ -87,6 +87,11 @@ public class SentinelWebInterceptor extends AbstractSentinelInterceptor {
         if (config.isContextPathSpecify() && request.getContextPath() != null) {
             resourceName = request.getContextPath() + resourceName;
         }
+
+        /**
+         * isHttpMethodSpecify 是这个 spring.cloud.sentinel.httpMethodSpecify
+         * 默认是false, 在自动生成的 HTTP 接口资源名中，加上请求方法前缀, GET /orders => 如果是false, /orders => 如果是true, 就是 GET:/orders
+         */
         if (StringUtil.isNotEmpty(resourceName) && config.isHttpMethodSpecify()) {
             resourceName = request.getMethod().toUpperCase() + ":" + resourceName;
         }
