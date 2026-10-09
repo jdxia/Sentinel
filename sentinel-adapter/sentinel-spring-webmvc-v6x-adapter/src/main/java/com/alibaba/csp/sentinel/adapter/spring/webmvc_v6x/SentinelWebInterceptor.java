@@ -83,6 +83,9 @@ public class SentinelWebInterceptor extends AbstractSentinelInterceptor {
 
         /**
          * 读取配置的 urlCleaner,可以把 一些url移除, 一些url整合
+         *
+         * 本质就是改 resourceName, 如果这个为空, 就代表不走后面流程
+         * 可以看下后续的
          */
         UrlCleaner urlCleaner = config.getUrlCleaner();
         if (urlCleaner != null) {

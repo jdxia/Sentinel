@@ -99,6 +99,10 @@ public abstract class AbstractSentinelInterceptor implements AsyncHandlerInterce
              *  获取 resourceName, 子类实现 {@link SentinelWebInterceptor#getResourceName(HttpServletRequest)}
              */
             resourceName = getResourceName(request);
+
+            /**
+             * urlClean可以把这个重写为空字符串, 如果是空字符串, 就不走限流了
+             */
             if (StringUtil.isEmpty(resourceName)) {
                 return true;
             }
