@@ -78,6 +78,7 @@ public class SpringCloudSentinelDemoApplication {
     /**
      * http://127.0.0.1:18080/examples/qps 触发下
      * http://127.0.0.1:18080/examples/manual
+     * http://127.0.0.1:18080/examples/circuit-state-change?fail=true 熔断状态变化示例
      */
     public static void main(String[] args) {
         SpringApplication.run(SpringCloudSentinelDemoApplication.class, args);

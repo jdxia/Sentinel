@@ -343,6 +343,21 @@ public final class SystemRuleManager {
             /**
              * Load 超过阈值，并不一定拦截。
              * 当前实现还要求入口并发数同时大于 1、大于 maxSuccessQps × minRt / 1000，才会拦截
+             *
+             * 这个公式是在估算系统顺畅处理请求时，需要维持多少个“正在处理、尚未结束”的请求。
+             *
+             * 假设一个系统：
+             * - 每秒能完成 1000 个请求
+             * - 每个请求耗时 20 ms，也就是 0.02 秒
+             *
+             * 1000 个/秒 × 0.02 秒 = 20 个  超过就拦截
+             *
+             * 每秒处理多少个 × 每个占用多久 = 同时有多少个还没处理完。
+             * 源码里除以 1000，只是把 RT 的单位从毫秒换成秒
+             *
+             * maxSuccessQps  在近期有效统计桶中，取最大的完成计数，再按桶时长换算为每秒处理量
+             * minRt    近期有效统计桶中记录到的最小 RT，单位是毫秒，返回值至少为 1 ms
+             * currentThread    当前入口中正在处理、尚未退出的请求数量
              */
             if (!checkBbr(currentThread)) {
                 throw new SystemBlockException(resourceWrapper.getName(), "load");
