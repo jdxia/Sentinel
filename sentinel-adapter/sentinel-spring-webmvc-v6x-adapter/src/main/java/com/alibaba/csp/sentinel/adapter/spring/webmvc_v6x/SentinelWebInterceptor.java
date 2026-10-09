@@ -80,6 +80,10 @@ public class SentinelWebInterceptor extends AbstractSentinelInterceptor {
             return null;
         }
         String resourceName = (String) resourceNameObject;
+
+        /**
+         * 读取配置的 urlCleaner,可以把 一些url移除, 一些url整合
+         */
         UrlCleaner urlCleaner = config.getUrlCleaner();
         if (urlCleaner != null) {
             resourceName = urlCleaner.clean(resourceName);

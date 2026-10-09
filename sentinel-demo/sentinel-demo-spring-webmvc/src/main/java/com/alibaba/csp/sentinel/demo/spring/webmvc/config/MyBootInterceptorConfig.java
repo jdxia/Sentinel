@@ -42,6 +42,8 @@ public class MyBootInterceptorConfig implements WebMvcConfigurer {
      */
     private void addSpringMvcInterceptor(InterceptorRegistry registry) {
         SentinelWebMvcConfig config = new SentinelWebMvcConfig();
+        // 纯 Spring Boot 没有 Alibaba Starter 的自动注入，需要显式注册 URL 清洗器。
+        config.setUrlCleaner(new DemoUrlCleaner());
 
         // Use the default handler.
         /**

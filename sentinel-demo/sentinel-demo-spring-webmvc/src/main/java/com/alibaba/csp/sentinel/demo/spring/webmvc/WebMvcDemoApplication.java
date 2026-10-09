@@ -42,6 +42,9 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 @EnableAspectJAutoProxy(exposeProxy = true, proxyTargetClass = true)
 public class WebMvcDemoApplication {
 
+    /**
+     * URL 清洗示例从 http://127.0.0.1:10001/url-cleaner/health 开始，见 controller.UrlCleanerController。
+     */
     public static void main(String[] args) {
         /**
          * 一些配置的key
