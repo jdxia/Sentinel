@@ -333,9 +333,17 @@ public final class SystemRuleManager {
          * Linux/Unix 环境中按需启用
          *
          * Load 参考值是 CPU 核数 × 2.5, 它适合作为实验起点，不能代替容量验证
+         *
+         * load 是一个“果”，如果根据 load 的情况来调节流量的通过率，那么就始终有延迟性。
+         * 也就意味着通过率的任何调整，都会过一段时间才能看到效果。当前通过率是使 load 恶化的一个动作，那么也至少要过 1 秒之后才能观测到；
+         * 同理，如果当前通过率调整是让 load 好转的一个动作，也需要 1 秒之后才能继续调整，这样就浪费了系统的处理能力。所以我们看到的曲线，总是会有抖动
          */
         // load. BBR algorithm.
         if (highestSystemLoadIsSet && getCurrentSystemAvgLoad() > highestSystemLoad) {
+            /**
+             * Load 超过阈值，并不一定拦截。
+             * 当前实现还要求入口并发数同时大于 1、大于 maxSuccessQps × minRt / 1000，才会拦截
+             */
             if (!checkBbr(currentThread)) {
                 throw new SystemBlockException(resourceWrapper.getName(), "load");
             }
