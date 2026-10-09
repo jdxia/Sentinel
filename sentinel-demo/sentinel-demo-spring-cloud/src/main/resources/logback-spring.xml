@@ -4,8 +4,8 @@
 
     结构：
     1. root：应用业务日志，控制台 + logs/app.log；
-    2. sentinelRecordLog / sentinelCommandCenterLog：被 config.log 包下的 SPI 实现
-       接管的 Sentinel 内部日志，控制台 + logs/sentinel.log，代替默认 JUL 写的
+    2. sentinelRecordLog / sentinelCommandCenterLog：被 config.sentinelLog 包下的 SPI 实现
+       接管的 Sentinel 内部日志，异步写 logs/sentinel.log，代替默认 JUL 写的
        ~/logs/csp/sentinel-record.log、command-center.log。
        跨天归档由 maxHistory/totalSizeCap 清理，解决 JUL DateFileLogHandler
        历史文件无限累积的问题。
@@ -45,7 +45,7 @@
     <!--
         Sentinel 日志：只承接被接管的两个 logger，单独分文件是为了排查
         "Sentinel 为什么没生效"时不用在应用日志里捞。
-        Dashboard 每秒来拉一次监控，command-center 这一路日志量不小，独立容量上限更稳。
+        命令请求和内部异常都可能产生日志，单独限制归档容量。
     -->
     <appender name="SENTINEL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_DIR}/sentinel.log</file>
@@ -62,6 +62,16 @@
         </rollingPolicy>
     </appender>
 
+    <!-- 业务优先：队列满时允许丢失诊断日志（包括 WARN/ERROR），不等待文件输出。 -->
+    <appender name="ASYNC_SENTINEL_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <!-- 正常关闭最多等待 5 秒排空队列，超时或强制终止仍可能丢日志。 -->
+        <maxFlushTime>5000</maxFlushTime>
+        <appender-ref ref="SENTINEL_FILE"/>
+    </appender>
+
     <!--
         logger 名必须与 AbstractSlf4jSentinelLogger 子类构造器传入的名字一致，
         写错不会报错，只是不生效（回落走 root 的 appender）。
@@ -69,11 +79,11 @@
     -->
     <logger name="sentinelRecordLog" level="info" additivity="false">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="SENTINEL_FILE"/>
+        <appender-ref ref="ASYNC_SENTINEL_FILE"/>
     </logger>
     <logger name="sentinelCommandCenterLog" level="info" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="SENTINEL_FILE"/>
+        appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_SENTINEL_FILE"/>
     </logger>
 
     <root level="info">

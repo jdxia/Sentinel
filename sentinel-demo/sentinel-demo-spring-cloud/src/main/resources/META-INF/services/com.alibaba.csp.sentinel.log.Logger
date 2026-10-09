@@ -3,5 +3,5 @@
 # 按每个实现类 @LogTarget 的 value 注册（"sentinelRecordLogger" / "sentinelCommandCenterLogger"）。
 # RecordLog / CommandCenterLog 静态块优先从这取实现，取不到才回落默认 JUL。
 # 注意：Sentinel 官方 demo-spi 之外的实现也这样注册，一行一个全限定类名。
-com.alibaba.csp.sentinel.demo.spring.cloud.config.log.Slf4jRecordLogger
-com.alibaba.csp.sentinel.demo.spring.cloud.config.log.Slf4jCommandCenterLogger
+com.alibaba.csp.sentinel.demo.spring.cloud.config.sentinelLog.Slf4jRecordLogger
+com.alibaba.csp.sentinel.demo.spring.cloud.config.sentinelLog.Slf4jCommandCenterLogger
