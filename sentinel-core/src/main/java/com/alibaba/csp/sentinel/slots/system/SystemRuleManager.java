@@ -367,6 +367,9 @@ public final class SystemRuleManager {
         /**
          * 判断cpu使用率
          * 后台有定时任务, 会不断收集当前请求的使用情况, 每隔1s执行一次
+         *
+         * 0 ~ 1 取值
+         * 建议配置 55% 开始, 慢慢往上
          */
         // cpu usage
         if (highestCpuUsageIsSet && getCurrentCpuUsage() > highestCpuUsage) {
