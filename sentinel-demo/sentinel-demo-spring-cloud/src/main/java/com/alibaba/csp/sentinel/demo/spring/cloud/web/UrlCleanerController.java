@@ -1,6 +1,15 @@
 package com.alibaba.csp.sentinel.demo.spring.cloud.web;
 
+import com.alibaba.csp.sentinel.Entry;
+import com.alibaba.csp.sentinel.EntryType;
+import com.alibaba.csp.sentinel.SphU;
+import com.alibaba.csp.sentinel.Tracer;
 import com.alibaba.csp.sentinel.demo.spring.cloud.config.DemoUrlCleaner;
+import com.alibaba.csp.sentinel.slots.block.BlockException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +28,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/url-cleaner")
 public class UrlCleanerController {
+
+    public static final String TEST_URL_RESOURCE = "test-url-resource";
+
+    private static final Logger logger = LoggerFactory.getLogger(UrlCleanerController.class);
 
     /** /health 正常返回，但不创建此 URL 的 Sentinel 资源。 */
     @GetMapping("/health")
@@ -41,13 +54,34 @@ public class UrlCleanerController {
     /** /products/101、/catalog/202 → GET:/url-cleaner/products/*，两个路径共享同一配额。 */
     @GetMapping({"/products/{productId}", "/catalog/{productId}"})
     public String product(@PathVariable("productId") String productId) {
-        return "product:" + productId;
+
+        // OUT 出站限流, 建议只有入口设置 IN 限流, 避免QPS和线程统计问题
+        try (Entry entry = SphU.entry(TEST_URL_RESOURCE, EntryType.OUT)) {
+            logger.info("===========> method: {}, action === SphU", this.getClass().getSimpleName());
+
+            // 在这里处理整批消息或任务；本例只返回数量，不产生外部业务影响。
+            try {
+                return "product entry";
+            } catch (Throwable exception) {
+                // 手动埋点必须显式上报业务异常（注解切面会自动做）：先打标记，
+                // 内层 catch 先于 close() 执行，exit 才能读取标记并统计异常数，异常类熔断随之生效。
+                Tracer.trace(exception);
+                return "product business failure: " + exception.getMessage();
+            }
+        } catch (BlockException exception) {
+            return handleFlowBlocked(exception);
+        }
+
     }
 
     /** 不做自定义清洗，MVC 已自动合并 ID：/users/1、/users/2 → GET:/url-cleaner/users/{userId}。 */
     @GetMapping("/users/{userId}")
     public String user(@PathVariable("userId") String userId) {
         return "user:" + userId;
+    }
+
+    public String handleFlowBlocked(BlockException exception) {
+        return "Flow blocked: " + exception.getClass().getSimpleName();
     }
 }
 

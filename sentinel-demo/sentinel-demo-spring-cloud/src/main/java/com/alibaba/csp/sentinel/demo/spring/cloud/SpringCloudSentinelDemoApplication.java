@@ -80,6 +80,7 @@ public class SpringCloudSentinelDemoApplication {
      * http://127.0.0.1:18080/examples/manual
      * http://127.0.0.1:18080/examples/circuit-state-change?fail=true 熔断状态变化示例
      * http://127.0.0.1:18080/url-cleaner/health 跳过 Web 入口统计；更多清洗示例见 web.UrlCleanerController
+     * http://127.0.0.1:18080/url-cleaner/products/101
      */
     public static void main(String[] args) {
         SpringApplication.run(SpringCloudSentinelDemoApplication.class, args);
