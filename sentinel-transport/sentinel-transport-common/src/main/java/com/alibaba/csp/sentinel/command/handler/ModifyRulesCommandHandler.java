@@ -73,8 +73,15 @@ public class ModifyRulesCommandHandler implements CommandHandler<String> {
         String result = "success";
 
         if (FLOW_RULE_TYPE.equalsIgnoreCase(type)) {
+            // 把 Dashboard 发来的 JSON 转成 Java 规则列表
             List<FlowRule> flowRules = JSONArray.parseArray(data, FlowRule.class);
+            // 更新当前 Java 进程中的流控规则
             FlowRuleManager.loadRules(flowRules);
+
+            /**
+             * getFlowDataSource() 取出启动时注册的写入器，如果是自己写的可能是 NacosWritableDataSource
+             * writeToDataSource(...) | 调用写入器的 write()，尝试保存到 Nacos
+             */
             if (!writeToDataSource(getFlowDataSource(), flowRules)) {
                 result = WRITE_DS_FAILURE_MSG;
             }
