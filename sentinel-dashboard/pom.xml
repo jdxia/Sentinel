@@ -19,6 +19,7 @@
         <resource.delimiter>@</resource.delimiter>
         <spring.boot.version>2.5.12</spring.boot.version>
         <curator.version>4.0.1</curator.version>
+        <nacos.client.version>2.5.2</nacos.client.version>
     </properties>
 
     <dependencies>
@@ -98,6 +99,13 @@
         <dependency>
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
+        </dependency>
+
+        <!-- 规则发布使用 Nacos 2.x 客户端的 CAS API，避免并发写入覆盖。 -->
+        <dependency>
+            <groupId>com.alibaba.nacos</groupId>
+            <artifactId>nacos-client</artifactId>
+            <version>${nacos.client.version}</version>
         </dependency>
 
         <!-- for Nacos rule publisher sample -->

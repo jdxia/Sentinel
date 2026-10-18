@@ -15,6 +15,7 @@
  */
 package com.alibaba.csp.sentinel.dashboard;
 
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleConfiguration;
 import com.alibaba.csp.sentinel.init.InitExecutor;
 
 import org.springframework.boot.SpringApplication;
@@ -37,6 +38,20 @@ public class DashboardApplication {
      */
 
 
+    /**
+     * 如果要让dashboard支持nacos, 那么
+     * 1. pom里面导入依赖  <artifactId>nacos-client</artifactId>
+     * 2. 配置文件和环境 --spring.profiles.active=nacos 指向带nacos的, 一个 Dashboard 进程使用同一套 namespace 和 group 管理规则，不同应用通过不同 Data ID 区分
+     *
+     *
+     * 要注意这个问题
+     * 例如，Nacos 已有：
+     * 规则 A、规则 B
+     * Dashboard 刚重启，内存中没有加载它们。用户从簇点链路直接新增规则 C，如果把内存列表直接发布，就可能写成：
+     * 规则 C
+     * A、B 就丢了。
+     *
+     */
     public static void main(String[] args) {
         triggerSentinelInit();
         SpringApplication.run(DashboardApplication.class, args);
