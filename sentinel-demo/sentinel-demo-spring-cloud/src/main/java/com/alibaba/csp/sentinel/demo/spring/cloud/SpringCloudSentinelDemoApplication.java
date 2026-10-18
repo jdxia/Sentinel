@@ -1,15 +1,19 @@
 package com.alibaba.csp.sentinel.demo.spring.cloud;
 
+import com.alibaba.cloud.sentinel.SentinelProperties;
 import com.alibaba.cloud.sentinel.SentinelWebAutoConfiguration;
 import com.alibaba.cloud.sentinel.SentinelWebMvcConfigurer;
+import com.alibaba.cloud.sentinel.custom.SentinelAutoConfiguration;
 import com.alibaba.cloud.sentinel.custom.context.SentinelApplicationContextInitializer;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.AbstractSentinelInterceptor;
 import com.alibaba.csp.sentinel.adapter.spring.webmvc_v6x.SentinelWebInterceptor;
 import com.alibaba.csp.sentinel.annotation.aspectj.SentinelResourceAspect;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.core.env.Environment;
 
 
 @SpringBootApplication
@@ -42,6 +46,17 @@ public class SpringCloudSentinelDemoApplication {
      * 3. 异步servlet的后置 {@link AbstractSentinelInterceptor#afterConcurrentHandlingStarted(HttpServletRequest, HttpServletResponse, Object)}
      *
      * 切面是 {@link SentinelResourceAspect}
+     *
+     *
+     * 配置规则持久化
+     * spring cloud alibaba 里面有2个模块, spring-cloud-starter-alibaba-sentinel 会包含 spring-cloud-alibaba-sentinel-datasource
+     * 1. spring-cloud-alibaba-sentinel-datasource   定义数据源配置、创建数据源、绑定规则管理器 | NacosDataSourceProperties、NacosDataSourceFactoryBean、AbstractDataSourceProperties
+     * 2. spring-cloud-starter-alibaba-sentinel   spring 自动装配、读取配置、注册数据源 Bean、选择转换器 | SentinelAutoConfiguration、SentinelDataSourceHandler
+     *
+     * 客户端规则从nacos读取, 监听变更是从这里进去的
+     * {@link SentinelAutoConfiguration#sentinelDataSourceHandler(DefaultListableBeanFactory, SentinelProperties, Environment)}
+     * 客户端使用 Spring Cloud Alibaba，并且已经正确配置 Sentinel 的 Nacos 数据源后，剩下的主要工作就是让 Dashboard 从 Nacos 读取规则、向 Nacos 发布规则
+     * 所以要引入  spring-cloud-starter-alibaba-sentinel 和 sentinel-datasource-nacos (这是datasource的实现)
      */
 
     /**
@@ -83,6 +98,11 @@ public class SpringCloudSentinelDemoApplication {
      * http://127.0.0.1:18080/examples/circuit-state-change?fail=true 熔断状态变化示例
      * http://127.0.0.1:18080/url-cleaner/health 跳过 Web 入口统计；更多清洗示例见 web.UrlCleanerController
      * http://127.0.0.1:18080/url-cleaner/products/101
+     */
+    /**
+     * 启动参数 --spring.profiles.active=nacos：由 Starter 加载 application-nacos.yml 中的五类规则数据源。
+     * 这种两个都会加载，配置会合并
+     * Dashboard 也启用 nacos profile；规则先持久化到 Nacos，再由监听更新到各实例，不能靠 setRules 持久化。
      */
     public static void main(String[] args) {
         SpringApplication.run(SpringCloudSentinelDemoApplication.class, args);

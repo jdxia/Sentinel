@@ -1,0 +1,61 @@
+# 与 Dashboard 同时启用 nacos profile。Nacos 是规则源，应用只读和监听，不回写。
+# 先在 Nacos 创建下面五个 dataId，内容为原生 Rule JSON 数组；无规则时填写 []。
+spring:
+  cloud:
+    sentinel:
+      datasource:
+        flow:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            # public 留空；其他环境填写命名空间 ID，不能填写显示名称。
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: ${NACOS_GROUP:SENTINEL_GROUP}
+            username: ${NACOS_USERNAME:}
+            password: ${NACOS_PASSWORD:}
+            data-id: ${spring.application.name}-${spring.profiles.active}-flow-rules
+            data-type: json
+            rule-type: flow
+        degrade:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            # public 留空；其他环境填写命名空间 ID，不能填写显示名称。
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: ${NACOS_GROUP:SENTINEL_GROUP}
+            username: ${NACOS_USERNAME:}
+            password: ${NACOS_PASSWORD:}
+            data-id: ${spring.application.name}-${spring.profiles.active}-degrade-rules
+            data-type: json
+            rule-type: degrade
+        param-flow:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            # public 留空；其他环境填写命名空间 ID，不能填写显示名称。
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: ${NACOS_GROUP:SENTINEL_GROUP}
+            username: ${NACOS_USERNAME:}
+            password: ${NACOS_PASSWORD:}
+            data-id: ${spring.application.name}-${spring.profiles.active}-param-rules
+            data-type: json
+            rule-type: param-flow
+        system:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            # public 留空；其他环境填写命名空间 ID，不能填写显示名称。
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: ${NACOS_GROUP:SENTINEL_GROUP}
+            username: ${NACOS_USERNAME:}
+            password: ${NACOS_PASSWORD:}
+            data-id: ${spring.application.name}-${spring.profiles.active}-system-rules
+            data-type: json
+            rule-type: system
+        authority:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            # public 留空；其他环境填写命名空间 ID，不能填写显示名称。
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: ${NACOS_GROUP:SENTINEL_GROUP}
+            username: ${NACOS_USERNAME:}
+            password: ${NACOS_PASSWORD:}
+            data-id: ${spring.application.name}-${spring.profiles.active}-authority-rules
+            data-type: json
+            rule-type: authority
