@@ -15,7 +15,6 @@
  */
 package com.alibaba.csp.sentinel.dashboard;
 
-import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleConfiguration;
 import com.alibaba.csp.sentinel.init.InitExecutor;
 
 import org.springframework.boot.SpringApplication;
