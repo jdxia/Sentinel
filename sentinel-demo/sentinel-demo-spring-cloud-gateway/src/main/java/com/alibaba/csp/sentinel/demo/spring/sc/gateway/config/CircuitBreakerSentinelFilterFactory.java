@@ -42,7 +42,7 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.p
  * 这种也有不好的地方, 降级给原来的服务, 但是不是原来的服务也不知道降级怎么处理
  * 或者filter不配置这个也可以, 就走默认了
  *
- * 默认行为是：请求被 Sentinel 限流或熔断拒绝后，网关直接返回 HTTP 429 和错误信息
+ * 向外传播的 Sentinel 规则拒绝由 SentinelGatewayBlockHandlerConfig 返回中文提示：限流为 429，熔断为 503。
  */
 @Component
 public class CircuitBreakerSentinelFilterFactory extends SpringCloudCircuitBreakerFilterFactory {

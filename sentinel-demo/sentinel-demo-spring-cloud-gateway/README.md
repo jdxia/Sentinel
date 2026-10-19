@@ -2,7 +2,8 @@
 
 使用 JDK 17，启动类为 `com.alibaba.csp.sentinel.demo.spring.sc.gateway.GatewayDemoApplication`。
 一个启动类提供两种模式，与 `SpringCloudSentinelDemoApplication` 的 profile 用法相同。
-网关过滤器由 `config/MySentinelGatewayConfiguration` 注册，限流异常处理器仍由 Spring Cloud Alibaba 自动注册。
+网关过滤器由 `config/MySentinelGatewayConfiguration` 注册，限流异常处理器仍由 Spring Cloud Alibaba 自动注册，
+`config/SentinelGatewayBlockHandlerConfig` 定制规则拒绝提示，并处理向外传播的下游网络异常。
 两种模式都不预置本地限流、熔断规则或 API 分组。没有熔断规则时，调用失败仍可执行 fallback，
 但不会按失败次数或慢调用比例打开熔断器。
 
@@ -33,6 +34,49 @@ Gateway 的 main 方法会在 Spring 启动前设置 `csp.sentinel.app.type=11`�
 
 默认模式不创建 Nacos 数据源。规则仅在所选网关实例的内存中生效，网关重启后不保留，
 也不会自动同步到其他网关实例。此模式用于学习或临时验证。
+
+## 友好的异常响应
+
+`config/SentinelGatewayBlockHandlerConfig` 沿用普通 Spring Cloud Demo 的 `code`、`message` 格式。
+Sentinel 拦截通过 `BlockRequestHandler` Bean 接入 Starter；网络异常由 WebFlux 的 `WebExceptionHandler` 处理。
+默认模式和 Nacos 模式均自动生效，无需修改 `main` 或添加配置。
+
+| 异常类型 | HTTP 状态 | code | message |
+| --- | --- | --- | --- |
+| 流控 | 429 | `SENTINEL_FLOW_BLOCKED` | 请求过于频繁，请稍后再试 |
+| 热点参数流控（包括网关规则产生的参数拒绝） | 429 | `SENTINEL_PARAM_FLOW_BLOCKED` | 请求过于频繁，请稍后再试 |
+| 熔断拒绝 | 503 | `SENTINEL_CIRCUIT_OPEN` | 服务暂时不可用 |
+| 系统保护 | 503 | `SENTINEL_SYSTEM_BLOCKED` | 服务繁忙，请稍后再试 |
+| 来源访问控制 | 403 | `SENTINEL_AUTHORITY_BLOCKED` | 请求来源不被允许 |
+| 其他 Sentinel 规则拒绝 | 503 | `SENTINEL_BLOCKED` | 服务暂时不可用 |
+| I/O 异常（包括连接失败、DNS/TLS 错误、连接提前关闭） | 502 | `GATEWAY_NETWORK_ERROR` | 网络异常，请稍后再试 |
+| Gateway 已转换为 HTTP 504 的超时异常 | 504 | `GATEWAY_TIMEOUT` | 网络异常，请稍后再试 |
+
+默认使用 `networkErrorStatusSimple`：只判断 Gateway 的 504 状态和根原因是否为 `IOException`。
+原来的 `networkErrorStatus` 完整版保留；需要区分各种原始超时类型时，将调用处切回该方法即可。
+简单版将原始 I/O 超时也归为 502，未转换为 504 的其他超时交给原处理链。
+
+例如下游连接失败时，响应为 HTTP `502`：
+
+```json
+{"code":"GATEWAY_NETWORK_ERROR","message":"网络异常，请稍后再试"}
+```
+
+这些响应统一使用 `application/json` 和 `Cache-Control: no-store`，不向客户端暴露资源名、阈值或异常详情。
+异常类型映射不代表已启用对应规则，规则仍由 Dashboard 或 Nacos 下发。
+不要同时设置 `spring.cloud.sentinel.scg.fallback.mode`，Starter 的该配置会覆盖自定义限流回调。
+
+路由已有的 `CircuitBreaker` / `fallbackUri` 先执行。下游降级接口成功返回时保留其状态和正文；
+降级接口也发生连接失败或超时并向外抛出时，才返回上述网络异常提示。
+下游直接返回的 HTTP 错误响应不是网络异常，不会在这里改写；普通业务异常仍交给原处理链。
+响应已经提交时无法替换正文，此时继续传播异常，避免二次写入。
+
+运行异常响应测试（不连接 Dashboard、Nacos 或公网）：
+
+```bash
+mvn -pl sentinel-demo/sentinel-demo-spring-cloud-gateway -am \
+  -Dtest=SentinelGatewayBlockHandlerConfigTest -Dsurefire.failIfNoSpecifiedTests=false test
+```
 
 ## 客户端 IP：优先读取代理头
 

@@ -29,7 +29,8 @@ import org.springframework.web.server.ServerWebExchange;
  * <p>默认启动：由 Dashboard 下发内存规则，网关重启后需重新配置。</p>
  * <p>启动参数 {@code --spring.profiles.active=nacos}：合并 application-nacos.yml，
  * 由 Alibaba Starter 加载并监听网关规则、API 分组和熔断规则；Dashboard 也须启用 nacos profile。</p>
- * <p>config 包中的 MySentinelGatewayConfiguration 注册支持代理头的限流过滤器，异常处理器仍由 SentinelSCGAutoConfiguration 注册。
+ * <p>config 包中的 MySentinelGatewayConfiguration 注册支持代理头的限流过滤器，异常处理器仍由 SentinelSCGAutoConfiguration 注册，
+ * SentinelGatewayBlockHandlerConfig 为规则拒绝和下游网络异常提供中文 JSON 提示。
  * 两种模式的 Dashboard 地址均通过 SENTINEL_DASHBOARD 环境变量配置。</p>
  * <p>路由中的 CircuitBreaker 通过 config 包的 CircuitBreakerSentinelFilterFactory 接入 Sentinel；
  * 默认转发到原下游的“原路径/fallback”，也可通过 fallbackUri 单独指定地址；
