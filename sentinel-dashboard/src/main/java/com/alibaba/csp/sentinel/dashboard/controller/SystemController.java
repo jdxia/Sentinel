@@ -18,6 +18,8 @@ package com.alibaba.csp.sentinel.dashboard.controller;
 import java.util.Date;
 import java.util.List;
 
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleStore;
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleType;
 import com.alibaba.csp.sentinel.dashboard.auth.AuthAction;
 import com.alibaba.csp.sentinel.dashboard.auth.AuthService.PrivilegeType;
 import com.alibaba.csp.sentinel.dashboard.discovery.AppManagement;
@@ -44,6 +46,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class SystemController {
 
     private final Logger logger = LoggerFactory.getLogger(SystemController.class);
+
+    // 未启用 nacos profile 时不创建规则存储，继续使用原有客户端推送。
+    @Autowired(required = false)
+    private NacosRuleStore nacosRuleStore;
 
     @Autowired
     private RuleRepository<SystemRuleEntity, Long> repository;
@@ -80,6 +86,9 @@ public class SystemController {
             return checkResult;
         }
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.query(NacosRuleType.SYSTEM, app, ip, port));
+            }
             List<SystemRuleEntity> rules = sentinelApiClient.fetchSystemRuleOfMachine(app, ip, port);
             rules = repository.saveAll(rules);
             return Result.ofSuccess(rules);
@@ -154,6 +163,9 @@ public class SystemController {
         entity.setGmtCreate(date);
         entity.setGmtModified(date);
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.add(NacosRuleType.SYSTEM, entity));
+            }
             entity = repository.save(entity);
         } catch (Throwable throwable) {
             logger.error("Add SystemRule error", throwable);
@@ -172,7 +184,8 @@ public class SystemController {
         if (id == null) {
             return Result.ofFail(-1, "id can't be null");
         }
-        SystemRuleEntity entity = repository.findById(id);
+        SystemRuleEntity entity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.SYSTEM, id);
         if (entity == null) {
             return Result.ofFail(-1, "id " + id + " dose not exist");
         }
@@ -216,6 +229,9 @@ public class SystemController {
         Date date = new Date();
         entity.setGmtModified(date);
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.update(NacosRuleType.SYSTEM, entity));
+            }
             entity = repository.save(entity);
         } catch (Throwable throwable) {
             logger.error("save error:", throwable);
@@ -233,11 +249,19 @@ public class SystemController {
         if (id == null) {
             return Result.ofFail(-1, "id can't be null");
         }
-        SystemRuleEntity oldEntity = repository.findById(id);
+        SystemRuleEntity oldEntity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.SYSTEM, id);
         if (oldEntity == null) {
+            if (nacosRuleStore != null) {
+                return Result.ofFail(-1, "规则已变化，请刷新规则页面后重试");
+            }
             return Result.ofSuccess(null);
         }
         try {
+            if (nacosRuleStore != null) {
+                nacosRuleStore.delete(NacosRuleType.SYSTEM, oldEntity);
+                return Result.ofSuccess(id);
+            }
             repository.delete(id);
         } catch (Throwable throwable) {
             logger.error("delete error:", throwable);

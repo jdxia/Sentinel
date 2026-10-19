@@ -18,6 +18,8 @@ package com.alibaba.csp.sentinel.dashboard.controller;
 import java.util.Date;
 import java.util.List;
 
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleStore;
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleType;
 import com.alibaba.csp.sentinel.dashboard.auth.AuthAction;
 import com.alibaba.csp.sentinel.dashboard.client.SentinelApiClient;
 import com.alibaba.csp.sentinel.dashboard.discovery.AppManagement;
@@ -53,6 +55,10 @@ public class AuthorityRuleController {
 
     private final Logger logger = LoggerFactory.getLogger(AuthorityRuleController.class);
 
+    // 未启用 nacos profile 时不创建规则存储，继续使用原有客户端推送。
+    @Autowired(required = false)
+    private NacosRuleStore nacosRuleStore;
+
     @Autowired
     private SentinelApiClient sentinelApiClient;
     @Autowired
@@ -78,6 +84,9 @@ public class AuthorityRuleController {
             return Result.ofFail(-1, "given ip does not belong to given app");
         }
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.query(NacosRuleType.AUTHORITY, app, ip, port));
+            }
             List<AuthorityRuleEntity> rules = sentinelApiClient.fetchAuthorityRulesOfMachine(app, ip, port);
             rules = repository.saveAll(rules);
             return Result.ofSuccess(rules);
@@ -128,6 +137,9 @@ public class AuthorityRuleController {
         entity.setGmtCreate(date);
         entity.setGmtModified(date);
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.add(NacosRuleType.AUTHORITY, entity));
+            }
             entity = repository.save(entity);
         } catch (Throwable throwable) {
             logger.error("Failed to add authority rule", throwable);
@@ -155,6 +167,9 @@ public class AuthorityRuleController {
         entity.setGmtCreate(null);
         entity.setGmtModified(date);
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.update(NacosRuleType.AUTHORITY, entity));
+            }
             entity = repository.save(entity);
             if (entity == null) {
                 return Result.ofFail(-1, "Failed to save authority rule");
@@ -175,11 +190,19 @@ public class AuthorityRuleController {
         if (id == null) {
             return Result.ofFail(-1, "id cannot be null");
         }
-        AuthorityRuleEntity oldEntity = repository.findById(id);
+        AuthorityRuleEntity oldEntity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.AUTHORITY, id);
         if (oldEntity == null) {
+            if (nacosRuleStore != null) {
+                return Result.ofFail(-1, "规则已变化，请刷新规则页面后重试");
+            }
             return Result.ofSuccess(null);
         }
         try {
+            if (nacosRuleStore != null) {
+                nacosRuleStore.delete(NacosRuleType.AUTHORITY, oldEntity);
+                return Result.ofSuccess(id);
+            }
             repository.delete(id);
         } catch (Exception e) {
             return Result.ofFail(-1, e.getMessage());

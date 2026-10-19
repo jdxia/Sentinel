@@ -42,6 +42,12 @@ public class DashboardApplication {
      * 1. pom里面导入依赖  <artifactId>nacos-client</artifactId>
      * 2. 配置文件和环境 --spring.profiles.active=nacos 指向带nacos的, 一个 Dashboard 进程使用同一套 namespace 和 group 管理规则，不同应用通过不同 Data ID 区分
      *
+     * 主要改动是这些
+     * | NacosRuleConfiguration | 根据 profile 创建连接和相关 Bean | 什么时候启用 Nacos 模式 |
+     * | NacosRuleType | 五类规则的类型映射、转换和校验 | Dashboard 实体与原生 Rule 的区别 |
+     * | NacosRuleStore | 查询、合并、CAS 发布和快照维护 | 整个改动的核心 |
+     * | NacosConfigCatalog | 调用 Nacos 2.x 管理接口，发现 Data ID | 启动时怎样发现应用 |
+     * | NacosRulePreloader | 启动后异步加载已发现的规则 | 加载时机、失败处理 |
      *
      * 要注意这个问题
      * 例如，Nacos 已有：

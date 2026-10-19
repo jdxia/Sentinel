@@ -26,6 +26,8 @@ import com.alibaba.csp.sentinel.dashboard.domain.vo.gateway.api.AddApiReqVo;
 import com.alibaba.csp.sentinel.dashboard.domain.vo.gateway.api.ApiPredicateItemVo;
 import com.alibaba.csp.sentinel.dashboard.domain.vo.gateway.api.UpdateApiReqVo;
 import com.alibaba.csp.sentinel.dashboard.repository.gateway.InMemApiDefinitionStore;
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleStore;
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleType;
 import com.alibaba.csp.sentinel.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +58,10 @@ public class GatewayApiController {
     @Autowired
     private SentinelApiClient sentinelApiClient;
 
+    // nacos profile 按应用持久化；默认模式保留按实例 HTTP 下发。
+    @Autowired(required = false)
+    private NacosRuleStore nacosRuleStore;
+
     @GetMapping("/list.json")
     @AuthAction(AuthService.PrivilegeType.READ_RULE)
     public Result<List<ApiDefinitionEntity>> queryApis(String app, String ip, Integer port) {
@@ -71,6 +77,9 @@ public class GatewayApiController {
         }
 
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.query(NacosRuleType.GW_API_GROUP, app, ip, port));
+            }
             List<ApiDefinitionEntity> apis = sentinelApiClient.fetchApis(app, ip, port).get();
             repository.saveAll(apis);
             return Result.ofSuccess(apis);
@@ -139,10 +148,12 @@ public class GatewayApiController {
         }
         entity.setPredicateItems(new LinkedHashSet<>(predicateItemEntities));
 
-        // 检查API名称不能重复
-        List<ApiDefinitionEntity> allApis = repository.findAllByMachine(MachineInfo.of(app.trim(), ip.trim(), port));
-        if (allApis.stream().map(o -> o.getApiName()).anyMatch(o -> o.equals(apiName.trim()))) {
-            return Result.ofFail(-1, "apiName exists: " + apiName);
+        // Nacos 模式在读取最新完整配置后检查重名，不能依赖实例内存中的旧列表。
+        if (nacosRuleStore == null) {
+            List<ApiDefinitionEntity> allApis = repository.findAllByMachine(MachineInfo.of(app.trim(), ip.trim(), port));
+            if (allApis.stream().map(o -> o.getApiName()).anyMatch(o -> o.equals(apiName.trim()))) {
+                return Result.ofFail(-1, "apiName exists: " + apiName);
+            }
         }
 
         Date date = new Date();
@@ -150,6 +161,9 @@ public class GatewayApiController {
         entity.setGmtModified(date);
 
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.add(NacosRuleType.GW_API_GROUP, entity));
+            }
             entity = repository.save(entity);
         } catch (Throwable throwable) {
             logger.error("add gateway api error:", throwable);
@@ -176,9 +190,13 @@ public class GatewayApiController {
             return Result.ofFail(-1, "id can't be null");
         }
 
-        ApiDefinitionEntity entity = repository.findById(id);
+        ApiDefinitionEntity entity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.GW_API_GROUP, id);
         if (entity == null) {
             return Result.ofFail(-1, "api does not exist, id=" + id);
+        }
+        if (!app.trim().equals(entity.getApp())) {
+            return Result.ofFail(-1, "app does not match the API group");
         }
 
         // 匹配规则列表
@@ -192,7 +210,7 @@ public class GatewayApiController {
             ApiPredicateItemEntity predicateItemEntity = new ApiPredicateItemEntity();
 
             // 匹配模式
-            int matchStrategy = predicateItem.getMatchStrategy();
+            Integer matchStrategy = predicateItem.getMatchStrategy();
             if (!Arrays.asList(URL_MATCH_STRATEGY_EXACT, URL_MATCH_STRATEGY_PREFIX, URL_MATCH_STRATEGY_REGEX).contains(matchStrategy)) {
                 return Result.ofFail(-1, "Invalid matchStrategy: " + matchStrategy);
             }
@@ -213,6 +231,9 @@ public class GatewayApiController {
         entity.setGmtModified(date);
 
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.update(NacosRuleType.GW_API_GROUP, entity));
+            }
             entity = repository.save(entity);
         } catch (Throwable throwable) {
             logger.error("update gateway api error:", throwable);
@@ -234,12 +255,20 @@ public class GatewayApiController {
             return Result.ofFail(-1, "id can't be null");
         }
 
-        ApiDefinitionEntity oldEntity = repository.findById(id);
+        ApiDefinitionEntity oldEntity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.GW_API_GROUP, id);
         if (oldEntity == null) {
+            if (nacosRuleStore != null) {
+                return Result.ofFail(-1, "规则已变化，请刷新规则页面后重试");
+            }
             return Result.ofSuccess(null);
         }
 
         try {
+            if (nacosRuleStore != null) {
+                nacosRuleStore.delete(NacosRuleType.GW_API_GROUP, oldEntity);
+                return Result.ofSuccess(id);
+            }
             repository.delete(id);
         } catch (Throwable throwable) {
             logger.error("delete gateway api error:", throwable);

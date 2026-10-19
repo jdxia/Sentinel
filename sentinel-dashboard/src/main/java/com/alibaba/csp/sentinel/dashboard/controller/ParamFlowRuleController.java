@@ -21,6 +21,8 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleStore;
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleType;
 import com.alibaba.csp.sentinel.dashboard.auth.AuthAction;
 import com.alibaba.csp.sentinel.dashboard.client.CommandNotFoundException;
 import com.alibaba.csp.sentinel.dashboard.client.SentinelApiClient;
@@ -58,6 +60,10 @@ import org.springframework.web.bind.annotation.RestController;
 public class ParamFlowRuleController {
 
     private final Logger logger = LoggerFactory.getLogger(ParamFlowRuleController.class);
+
+    // 未启用 nacos profile 时不创建规则存储，继续使用原有客户端推送。
+    @Autowired(required = false)
+    private NacosRuleStore nacosRuleStore;
 
     @Autowired
     private SentinelApiClient sentinelApiClient;
@@ -100,6 +106,9 @@ public class ParamFlowRuleController {
             return unsupportedVersion();
         }
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.query(NacosRuleType.PARAM_FLOW, app, ip, port));
+            }
             return sentinelApiClient.fetchParamFlowRulesOfMachine(app, ip, port)
                 .thenApply(repository::saveAll)
                 .thenApply(Result::ofSuccess)
@@ -137,6 +146,9 @@ public class ParamFlowRuleController {
         entity.setGmtCreate(date);
         entity.setGmtModified(date);
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.add(NacosRuleType.PARAM_FLOW, entity));
+            }
             entity = repository.save(entity);
             publishRules(entity.getApp(), entity.getIp(), entity.getPort()).get();
             return Result.ofSuccess(entity);
@@ -197,7 +209,8 @@ public class ParamFlowRuleController {
         if (id == null || id <= 0) {
             return Result.ofFail(-1, "Invalid id");
         }
-        ParamFlowRuleEntity oldEntity = repository.findById(id);
+        ParamFlowRuleEntity oldEntity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.PARAM_FLOW, id);
         if (oldEntity == null) {
             return Result.ofFail(-1, "id " + id + " does not exist");
         }
@@ -214,6 +227,9 @@ public class ParamFlowRuleController {
         entity.setGmtCreate(oldEntity.getGmtCreate());
         entity.setGmtModified(date);
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.update(NacosRuleType.PARAM_FLOW, entity));
+            }
             entity = repository.save(entity);
             publishRules(entity.getApp(), entity.getIp(), entity.getPort()).get();
             return Result.ofSuccess(entity);
@@ -236,12 +252,20 @@ public class ParamFlowRuleController {
         if (id == null) {
             return Result.ofFail(-1, "id cannot be null");
         }
-        ParamFlowRuleEntity oldEntity = repository.findById(id);
+        ParamFlowRuleEntity oldEntity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.PARAM_FLOW, id);
         if (oldEntity == null) {
+            if (nacosRuleStore != null) {
+                return Result.ofFail(-1, "规则已变化，请刷新规则页面后重试");
+            }
             return Result.ofSuccess(null);
         }
 
         try {
+            if (nacosRuleStore != null) {
+                nacosRuleStore.delete(NacosRuleType.PARAM_FLOW, oldEntity);
+                return Result.ofSuccess(id);
+            }
             repository.delete(id);
             publishRules(oldEntity.getApp(), oldEntity.getIp(), oldEntity.getPort()).get();
             return Result.ofSuccess(id);

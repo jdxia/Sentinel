@@ -27,6 +27,8 @@ import com.alibaba.csp.sentinel.dashboard.domain.vo.gateway.rule.AddFlowRuleReqV
 import com.alibaba.csp.sentinel.dashboard.domain.vo.gateway.rule.GatewayParamFlowItemVo;
 import com.alibaba.csp.sentinel.dashboard.domain.vo.gateway.rule.UpdateFlowRuleReqVo;
 import com.alibaba.csp.sentinel.dashboard.repository.gateway.InMemGatewayFlowRuleStore;
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleStore;
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleType;
 import com.alibaba.csp.sentinel.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +61,10 @@ public class GatewayFlowRuleController {
     @Autowired
     private SentinelApiClient sentinelApiClient;
 
+    // nacos profile 按应用持久化；默认模式保留按实例 HTTP 下发。
+    @Autowired(required = false)
+    private NacosRuleStore nacosRuleStore;
+
     @GetMapping("/list.json")
     @AuthAction(AuthService.PrivilegeType.READ_RULE)
     public Result<List<GatewayFlowRuleEntity>> queryFlowRules(String app, String ip, Integer port) {
@@ -74,6 +80,9 @@ public class GatewayFlowRuleController {
         }
 
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.query(NacosRuleType.GW_FLOW, app, ip, port));
+            }
             List<GatewayFlowRuleEntity> rules = sentinelApiClient.fetchGatewayFlowRules(app, ip, port).get();
             repository.saveAll(rules);
             return Result.ofSuccess(rules);
@@ -237,6 +246,9 @@ public class GatewayFlowRuleController {
         entity.setGmtModified(date);
 
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.add(NacosRuleType.GW_FLOW, entity));
+            }
             entity = repository.save(entity);
         } catch (Throwable throwable) {
             logger.error("add gateway flow rule error:", throwable);
@@ -264,9 +276,13 @@ public class GatewayFlowRuleController {
             return Result.ofFail(-1, "id can't be null");
         }
 
-        GatewayFlowRuleEntity entity = repository.findById(id);
+        GatewayFlowRuleEntity entity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.GW_FLOW, id);
         if (entity == null) {
             return Result.ofFail(-1, "gateway flow rule does not exist, id=" + id);
+        }
+        if (!app.trim().equals(entity.getApp())) {
+            return Result.ofFail(-1, "app does not match the gateway flow rule");
         }
 
         // 针对请求属性
@@ -383,6 +399,9 @@ public class GatewayFlowRuleController {
         entity.setGmtModified(date);
 
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.update(NacosRuleType.GW_FLOW, entity));
+            }
             entity = repository.save(entity);
         } catch (Throwable throwable) {
             logger.error("update gateway flow rule error:", throwable);
@@ -405,12 +424,20 @@ public class GatewayFlowRuleController {
             return Result.ofFail(-1, "id can't be null");
         }
 
-        GatewayFlowRuleEntity oldEntity = repository.findById(id);
+        GatewayFlowRuleEntity oldEntity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.GW_FLOW, id);
         if (oldEntity == null) {
+            if (nacosRuleStore != null) {
+                return Result.ofFail(-1, "规则已变化，请刷新规则页面后重试");
+            }
             return Result.ofSuccess(null);
         }
 
         try {
+            if (nacosRuleStore != null) {
+                nacosRuleStore.delete(NacosRuleType.GW_FLOW, oldEntity);
+                return Result.ofSuccess(id);
+            }
             repository.delete(id);
         } catch (Throwable throwable) {
             logger.error("delete gateway flow rule error:", throwable);

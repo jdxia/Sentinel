@@ -21,6 +21,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleStore;
+import com.alibaba.csp.sentinel.dashboard.rule.nacos.NacosRuleType;
 import com.alibaba.csp.sentinel.dashboard.auth.AuthAction;
 import com.alibaba.csp.sentinel.dashboard.auth.AuthService.PrivilegeType;
 import com.alibaba.csp.sentinel.dashboard.discovery.AppManagement;
@@ -56,6 +58,10 @@ public class FlowControllerV1 {
 
     private final Logger logger = LoggerFactory.getLogger(FlowControllerV1.class);
 
+    // 未启用 nacos profile 时不创建规则存储，继续使用原有客户端推送。
+    @Autowired(required = false)
+    private NacosRuleStore nacosRuleStore;
+
     @Autowired
     private InMemoryRuleRepositoryAdapter<FlowRuleEntity> repository;
     @Autowired
@@ -82,6 +88,9 @@ public class FlowControllerV1 {
             return Result.ofFail(-1, "given ip does not belong to given app");
         }
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.query(NacosRuleType.FLOW, app, ip, port));
+            }
             List<FlowRuleEntity> rules = sentinelApiClient.fetchFlowRuleOfMachine(app, ip, port);
             rules = repository.saveAll(rules);
             return Result.ofSuccess(rules);
@@ -155,6 +164,9 @@ public class FlowControllerV1 {
         entity.setLimitApp(entity.getLimitApp().trim());
         entity.setResource(entity.getResource().trim());
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.add(NacosRuleType.FLOW, entity));
+            }
             entity = repository.save(entity);
 
             publishRules(entity.getApp(), entity.getIp(), entity.getPort()).get(5000, TimeUnit.MILLISECONDS);
@@ -176,7 +188,8 @@ public class FlowControllerV1 {
         if (id == null) {
             return Result.ofFail(-1, "id can't be null");
         }
-        FlowRuleEntity entity = repository.findById(id);
+        FlowRuleEntity entity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.FLOW, id);
         if (entity == null) {
             return Result.ofFail(-1, "id " + id + " dose not exist");
         }
@@ -231,6 +244,9 @@ public class FlowControllerV1 {
         Date date = new Date();
         entity.setGmtModified(date);
         try {
+            if (nacosRuleStore != null) {
+                return Result.ofSuccess(nacosRuleStore.update(NacosRuleType.FLOW, entity));
+            }
             entity = repository.save(entity);
             if (entity == null) {
                 return Result.ofFail(-1, "save entity fail: null");
@@ -253,12 +269,20 @@ public class FlowControllerV1 {
         if (id == null) {
             return Result.ofFail(-1, "id can't be null");
         }
-        FlowRuleEntity oldEntity = repository.findById(id);
+        FlowRuleEntity oldEntity = nacosRuleStore == null ? repository.findById(id)
+            : nacosRuleStore.findById(NacosRuleType.FLOW, id);
         if (oldEntity == null) {
+            if (nacosRuleStore != null) {
+                return Result.ofFail(-1, "规则已变化，请刷新规则页面后重试");
+            }
             return Result.ofSuccess(null);
         }
 
         try {
+            if (nacosRuleStore != null) {
+                nacosRuleStore.delete(NacosRuleType.FLOW, oldEntity);
+                return Result.ofSuccess(id);
+            }
             repository.delete(id);
         } catch (Exception e) {
             return Result.ofFail(-1, e.getMessage());

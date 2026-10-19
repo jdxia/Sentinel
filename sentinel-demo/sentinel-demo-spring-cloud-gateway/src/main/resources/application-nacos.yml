@@ -1,0 +1,26 @@
+# Dashboard 同时启用 nacos profile，使用相同地址、namespace ID、group 和 spring.profiles.active。
+# 先在 Nacos 创建这两个 Data ID，内容为 []；应用只读取和监听，不向 Nacos 回写。
+spring:
+  cloud:
+    sentinel:
+      datasource:
+        gateway-flow:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: ${NACOS_GROUP:SENTINEL_GROUP}
+            username: ${NACOS_USERNAME:}
+            password: ${NACOS_PASSWORD:}
+            data-id: ${spring.application.name}-${spring.profiles.active}-gw-flow-rules
+            data-type: json
+            rule-type: gw-flow
+        gateway-api-group:
+          nacos:
+            server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+            namespace: ${NACOS_NAMESPACE:}
+            group-id: ${NACOS_GROUP:SENTINEL_GROUP}
+            username: ${NACOS_USERNAME:}
+            password: ${NACOS_PASSWORD:}
+            data-id: ${spring.application.name}-${spring.profiles.active}-gw-api-group-rules
+            data-type: json
+            rule-type: gw-api-group
