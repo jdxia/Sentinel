@@ -17,19 +17,23 @@ package com.alibaba.csp.sentinel.demo.spring.sc.gateway;
 
 import com.alibaba.csp.sentinel.adapter.gateway.sc.SentinelGatewayFilter;
 import com.alibaba.csp.sentinel.adapter.reactor.SentinelReactorSubscriber;
+import com.alibaba.csp.sentinel.demo.spring.sc.gateway.web.GatewayFallbackController;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.web.server.ServerWebExchange;
 
 /**
- * Spring Cloud Gateway 的 Sentinel 接入示例，不预置本地限流规则或 API 分组。
+ * Spring Cloud Gateway 的 Sentinel 接入示例，不预置本地限流、熔断规则或 API 分组。
  *
  * <p>默认启动：由 Dashboard 下发内存规则，网关重启后需重新配置。</p>
  * <p>启动参数 {@code --spring.profiles.active=nacos}：合并 application-nacos.yml，
- * 由 Alibaba Starter 加载并监听网关规则和 API 分组；Dashboard 也须启用 nacos profile。</p>
- * <p>过滤器与异常处理器由 SentinelSCGAutoConfiguration 注册，不需要手工配置 Bean。
+ * 由 Alibaba Starter 加载并监听网关规则、API 分组和熔断规则；Dashboard 也须启用 nacos profile。</p>
+ * <p>config 包中的 MySentinelGatewayConfiguration 注册支持代理头的限流过滤器，异常处理器仍由 SentinelSCGAutoConfiguration 注册。
  * 两种模式的 Dashboard 地址均通过 SENTINEL_DASHBOARD 环境变量配置。</p>
+ * <p>路由中的 CircuitBreaker 通过 config 包的 CircuitBreakerSentinelFilterFactory 接入 Sentinel；
+ * 默认转发到原下游的“原路径/fallback”，也可通过 fallbackUri 单独指定地址；
+ * 显式配置本地 /fallback 时由 {@link GatewayFallbackController} 返回降级响应。</p>
  *
  * @author Eric Zhao
  */

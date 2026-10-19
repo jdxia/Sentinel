@@ -2,8 +2,9 @@
 
 使用 JDK 17，启动类为 `com.alibaba.csp.sentinel.demo.spring.sc.gateway.GatewayDemoApplication`。
 一个启动类提供两种模式，与 `SpringCloudSentinelDemoApplication` 的 profile 用法相同。
-网关过滤器和限流异常处理器由 Spring Cloud Alibaba 自动注册，不再使用 `GatewayConfiguration`。
-两种模式都不预置本地限流规则或 API 分组。没有外部规则时，Sentinel 不执行这些规则的限流。
+网关过滤器由 `config/MySentinelGatewayConfiguration` 注册，限流异常处理器仍由 Spring Cloud Alibaba 自动注册。
+两种模式都不预置本地限流、熔断规则或 API 分组。没有熔断规则时，调用失败仍可执行 fallback，
+但不会按失败次数或慢调用比例打开熔断器。
 
 | 模式 | Gateway 启动参数 | Dashboard 启动参数 | 规则来源 |
 | --- | --- | --- | --- |
@@ -33,6 +34,123 @@ Gateway 的 main 方法会在 Spring 启动前设置 `csp.sentinel.app.type=11`�
 默认模式不创建 Nacos 数据源。规则仅在所选网关实例的内存中生效，网关重启后不保留，
 也不会自动同步到其他网关实例。此模式用于学习或临时验证。
 
+## 客户端 IP：优先读取代理头
+
+`config/MySentinelGatewayConfiguration` 使用 Sentinel 的 `ConfigurableRequestItemParser`，仅定制客户端 IP 提取。
+默认模式和 Nacos 模式均生效，过滤器顺序继续使用 `spring.cloud.sentinel.scg.order`。
+
+依次检查 `X-Forwarded-For`、`Proxy-Client-IP`、`WL-Proxy-Client-IP`、`HTTP_CLIENT_IP`、
+`HTTP_X_FORWARDED_FOR`。每个头按逗号拆分、去除两端空白，取第一个合法的 IPv4 或 IPv6 地址。
+空值、`unknown` 和非法 IP 会被跳过；全部没有有效值时，回退到请求的 `remoteAddress`，保留回环地址。
+例如 `X-Forwarded-For: 203.0.113.10, 10.0.0.20` 使用 `203.0.113.10` 参与客户端 IP 限流。
+
+此 Demo 信任上述代理头，仅适用于可信代理已清理或重写这些头的环境。
+如果客户端可以直接访问网关或自行控制这些头，就可以伪造限流 IP；部署时须限制网关入口并配置代理。
+此处不修改发给下游的 Header，不做 Token 摘要，也不把 `127.0.0.1` 替换为网卡地址。
+
+运行 IP 提取与过滤器装配测试（无需连接 Dashboard 或 Nacos）：
+
+```bash
+mvn -pl sentinel-demo/sentinel-demo-spring-cloud-gateway -am \
+  -Dtest=GatewayClientIpTest -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
+## 熔断降级：复用官方 fallbackUri
+
+`config/CircuitBreakerSentinelFilterFactory` 把已有的 Sentinel 熔断器工厂接入 Gateway，过滤器名称为
+`CircuitBreaker`。转发、路径变量展开和请求体缓存均复用官方父类；本模块没有新增依赖。
+`GatewayDemoApplication` 的组件扫描会注册适配类和 `GatewayFallbackController`。
+
+路由不配置 `fallbackUri` 时，默认把原请求路径追加 `/fallback`，再由网关路由转发给原下游服务。
+例如 `/product/123` 失败后调用商品服务的 `/product/123/fallback`；降级数据和响应状态由下游接口提供。
+路由配置了 `fallbackUri` 时，优先使用路由自己的地址：
+
+```yaml
+demo:
+  gateway:
+    default-fallback-uri: forward:/{sentinelOriginalPath}/fallback
+
+# 放在需要熔断的路由 filters 中，例如 aliyun_route：
+filters:
+  - name: CircuitBreaker
+    args:
+      name: aliyun_route_cb
+      # 省略 fallbackUri，自动在原请求路径后追加 /fallback。
+      statusCodes: [500, 502, 503, 504]
+```
+
+特殊路由直接填写自己的 `fallbackUri`，例如 `httpbin_route` 使用
+`forward:/httpbin/fallback{segments}`。修改统一默认值只影响未配置 `fallbackUri` 的路由，不影响这些独立配置。
+`demo.gateway.default-fallback-uri` 是本 Demo 适配类读取的配置，不是 Gateway 官方属性。
+此项省略时也默认追加 `/fallback`；显式设为空字符串时关闭统一默认值，保留路由独立地址。
+`sentinelOriginalPath` 由适配类在路径重写前放入当前请求的路径变量中，内容不含开头的 `/`，不修改路由共享配置。
+每条需要熔断的路由仍须配置一个 `CircuitBreaker`。
+此处不使用 `default-filters`，因为默认过滤器会与路由过滤器叠加，不能靠添加同名过滤器覆盖。
+
+| 正常请求 | Sentinel 熔断资源名 | 网关内部转发路径 | 下游收到的降级路径 |
+| --- | --- | --- | --- |
+| `/product/123` | `aliyun_route_cb` | `/product/123/fallback` | `/product/123/fallback` |
+| `/httpbin/status/500` | `httpbin_route_cb` | `/httpbin/fallback/status/500` | `/fallback/status/500` |
+
+`httpbin_route` 的 `Path=/httpbin/{*segments}` 捕获剩余路径，`segments` 已包含开头的 `/`。
+`CircuitBreaker` 放在 `RewritePath` 前，降级时使用原路由捕获的变量。
+`forward:` 先在网关内部重新分派请求，再匹配路由并向下游发送 HTTP 请求，客户端不会收到重定向。
+当前 `/product/**` 和 `/httpbin/{*segments}` 都能匹配降级路径，因此继续使用原服务的 URI。
+若改用精确路径 `/product/{id}`，还须配置能匹配 `/product/{id}/fallback` 的路由并指向原服务。
+独立配置降级地址时，也须确保新路径映射到预期服务，不能假设它一定复用原路由。
+
+适配类用官方内部异常属性识别降级请求，并跳过再次执行 CircuitBreaker，防止已打开的熔断器拒绝降级请求或循环降级。
+其他网关过滤器仍会执行。原请求方法、查询参数和 POST 请求体会保留，下游降级接口须支持相同的请求方法。
+第一次业务失败通常产生两次下游请求；熔断期间跳过业务接口，只调用下游降级接口。
+下游降级接口应返回缓存或简化结果，不应再次执行原来的故障依赖或重复提交写操作。
+
+连接失败、向外传播的调用异常、Sentinel 熔断拒绝，以及配置的 HTTP `500/502/503/504` 都会进入 fallback。
+普通 HTTP `4xx` 或 HTTP `200` 内的业务失败码不会因此降级。正常调用保持原响应。
+下游降级接口的状态码和响应体直接返回给客户端；它再次失败时不会继续追加 `/fallback`。
+若整个下游服务不可达，降级接口同样无法响应，这种方式不能代替独立的容灾服务。
+
+原异常由官方父类放入 `CIRCUITBREAKER_EXECUTION_EXCEPTION_ATTR`，该属性仅在网关进程中使用，不会自动成为请求头。
+下游若确实需要异常上下文，可单独接入官方 `FallbackHeadersGatewayFilterFactory`，当前未下发异常详情。
+仍可显式配置 `forward:/fallback` 使用本地 `GatewayFallbackController`，此时由网关返回固定 HTTP `503` 和 JSON。
+路径变量与转发至外部服务的方式见 [Gateway 官方文档](https://docs.spring.io/spring-cloud-gateway/reference/4.3/spring-cloud-gateway-server-webflux/gatewayfilter-factories/circuitbreaker-filter-factory.html)。
+统一默认值为空且路由也没有配置 fallbackUri 时，适配类将 `TimeoutException` 转为 HTTP `504`，将 `DegradeException` 转为
+HTTP `503`；`resumeWithoutError=true` 仅允许忽略其他普通异常，不会把超时和熔断拒绝变成成功。
+
+配置中的公网 URI 仅作路由示例，不保证提供本 Demo 约定的降级接口。
+手动联调时，先将 `aliyun_route.uri` 指向同时提供 `/product/{id}` 和 `/product/{id}/fallback` 的商品服务。
+访问 `http://127.0.0.1:8090/product/123`，让业务接口返回配置的错误状态，即可检查下游降级响应。
+想验证熔断器打开后跳过业务接口，可在 Dashboard 为 `aliyun_route_cb` 配置熔断规则。
+Nacos 模式也可在下文的 `degrade-rules` 配置中保存以下学习用规则：
+
+```json
+[
+  {
+    "resource": "aliyun_route_cb",
+    "grade": 2,
+    "count": 2,
+    "minRequestAmount": 5,
+    "statIntervalMs": 10000,
+    "timeWindow": 10
+  }
+]
+```
+
+该示例在 10 秒统计窗口内至少完成 5 次调用、异常数超过 2 次时熔断，熔断窗口为 10 秒。
+让 `/product/123` 连续失败触发熔断，再检查商品服务日志：熔断期间只应收到 `/product/123/fallback`。
+网关限流规则仍使用 `aliyun_route`；熔断规则使用独立的 `aliyun_route_cb`，避免两个入口重复统计同名资源。
+示例只用于手动学习，不会在启动时自动加载；修改已有 Nacos 配置时须保留其他资源的规则。
+
+独立运行降级测试（使用本机临时端口，不连接 Dashboard、Nacos 或公网）：
+
+```bash
+mvn -pl sentinel-demo/sentinel-demo-spring-cloud-gateway -am \
+  -Dtest=GatewayCircuitBreakerTest -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
+测试通过本机 HTTP 下游验证默认追加路径、独立地址和路径重写、POST 请求体与编码参数保留、熔断后只调用降级接口、
+降级接口失败不循环、路由间熔断隔离、无 fallback 时的错误状态和 Nacos 熔断数据源绑定。
+请求体缓存会占用内存，大文件上传应单独规划路由和降级策略。
+
 ## Nacos 模式：持久化规则
 
 Gateway 加载 `application.yml`，再合并 `application-nacos.yml`。
@@ -50,12 +168,13 @@ public namespace 留空；其他 namespace 填 ID，不填显示名称。
 开启鉴权时，通过 `NACOS_USERNAME` 和 `NACOS_PASSWORD` 注入各自账号。
 Dashboard 需要配置读写权限，Gateway 只需读取和监听权限。
 
-首次使用时，在上述 namespace/group 创建两个配置，内容都填写 `[]`：
+首次使用时，在上述 namespace/group 创建三个配置，内容都填写 `[]`：
 
 | Data ID | 内容类型 | Gateway `rule-type` |
 | --- | --- | --- |
 | `spring-cloud-gateway-sentinel-demo-nacos-gw-flow-rules` | 原生 `GatewayFlowRule` JSON 数组 | `gw-flow` |
 | `spring-cloud-gateway-sentinel-demo-nacos-gw-api-group-rules` | 原生 `ApiDefinition` JSON 数组 | `gw-api-group` |
+| `spring-cloud-gateway-sentinel-demo-nacos-degrade-rules` | 原生 `DegradeRule` JSON 数组 | `degrade` |
 
 已有配置不能用 `[]` 覆盖。Data ID 统一按 `${spring.application.name}-${spring.profiles.active}-规则后缀`
 拼接。Dashboard 和 Gateway 的 `spring.profiles.active` 值必须一致；例如设置为 `prod,nacos` 时，
@@ -67,12 +186,13 @@ Data ID 中也会包含 `prod,nacos`，不会自动只取其中一个 profile。
 --spring.profiles.active=nacos
 ```
 
-之后在 Dashboard 中新增、修改、删除网关规则或 API 分组。控制台先读取 Nacos 的最新完整列表，
+之后在 Dashboard 中新增、修改、删除网关规则、API 分组或熔断规则。控制台先读取 Nacos 的最新完整列表，
 合并变更并用 CAS 发布，成功后才更新页面快照。发布失败不会回退到单实例 HTTP 下发。
 所有订阅同一 Data ID 的网关监听更新。删除最后一项会发布 `[]`，不删除配置项。
 
-规则资源名应与路由 ID 或 API 分组名称一致。使用 API 分组限流时，先创建分组，再配置引用它的规则；
-两个 Data ID 分别发布，不是跨配置事务。网关规则使用 `gw-flow`，不能误用普通 `flow`。
+网关限流资源名应与路由 ID 或 API 分组名称一致；熔断资源名与路由中的 `CircuitBreaker.args.name` 一致。
+使用 API 分组限流时，先创建分组，再配置引用它的规则。三个 Data ID 分别发布，不是跨配置事务。
+网关限流使用 `gw-flow`，不能误用普通 `flow`；熔断使用 `degrade`。
 
 ## 打包与验证
 

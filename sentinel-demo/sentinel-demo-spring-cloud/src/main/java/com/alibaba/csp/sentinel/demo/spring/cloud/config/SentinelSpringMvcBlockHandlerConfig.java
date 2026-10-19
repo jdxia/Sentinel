@@ -7,7 +7,11 @@ import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowException;
 import com.alibaba.csp.sentinel.slots.block.flow.param.ParamFlowException;
 import com.alibaba.csp.sentinel.slots.system.SystemBlockException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -27,13 +31,16 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * 无需额外注册 Sentinel 拦截器。注解的 blockHandler/fallback 或手动 catch 若已处理异常，
  * 则保留它们的业务响应，不再进入本处理器。</p>
  *
- * <p>规则拒绝可能高频发生，不逐请求打印 WARN/ERROR；监控使用 Sentinel 指标。
+ * <p>规则拒绝时记录请求 URI 和异常，便于定位被拦截的接口；不记录查询参数。
  * 对外仅提供稳定错误码和通用提示，不暴露规则、阈值、来源、资源名或异常详情。</p>
  */
 @Configuration(proxyBeanMethods = false)
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
+@ConditionalOnClass({HttpServletRequest.class, HttpServletResponse.class})
 public class SentinelSpringMvcBlockHandlerConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SentinelSpringMvcBlockHandlerConfig.class);
 
     @Bean
     public BlockExceptionHandler sentinelBlockExceptionHandler() {
@@ -48,7 +55,9 @@ public class SentinelSpringMvcBlockHandlerConfig {
      */
     @ExceptionHandler(BlockException.class)
     public ResponseEntity<BlockResponse> sentinelBlockHandler(BlockException exception,
+                                                             HttpServletRequest request,
                                                              HttpServletResponse response) {
+        log.warn("Sentinel blocked request: uri={}, exception={}", request.getRequestURI(), exception.toString());
         if (response.isCommitted()) {
             return null;
         }

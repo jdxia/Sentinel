@@ -7,7 +7,11 @@ import com.alibaba.csp.sentinel.slots.block.degrade.DegradeException;
 import com.alibaba.csp.sentinel.slots.block.flow.FlowException;
 import com.alibaba.csp.sentinel.slots.block.flow.param.ParamFlowException;
 import com.alibaba.csp.sentinel.slots.system.SystemBlockException;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.CacheControl;
@@ -31,7 +35,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
  */
 @ControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
+@ConditionalOnClass({HttpServletRequest.class, HttpServletResponse.class})
 public class SentinelSpringMvcBlockHandlerConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SentinelSpringMvcBlockHandlerConfig.class);
 
     /**
      * BlockException 是 Sentinel 所有"规则拦截"的抽象父类（注意：它只表示被 Sentinel 拦截，
@@ -50,9 +57,12 @@ public class SentinelSpringMvcBlockHandlerConfig {
     @ExceptionHandler(BlockException.class)
     // 表示返回值不会被当作页面名，而会交给 Spring 的消息转换器序列化。
     @ResponseBody
-    public ResponseEntity<ResultWrapper> sentinelBlockHandler(BlockException e, HttpServletResponse response) {
+    public ResponseEntity<ResultWrapper> sentinelBlockHandler(BlockException e, HttpServletRequest request,
+                                                             HttpServletResponse response) {
+        // 记录被拦截的请求 URI，便于定位接口；不记录查询参数。
+        log.warn("Sentinel blocked request: uri={}, exception={}", request.getRequestURI(), e.toString());
         /*
-         * Spring MVC 可直接注入 HttpServletResponse，并用 ResponseEntity 设置状态和响应头，
+         * Spring MVC 可直接注入请求和响应，并用 ResponseEntity 设置状态和响应头，
          * 无需再从 ThreadLocal 请求上下文中间接获取响应对象。
          *
          * 做好响应提交状态检查；已提交时不能重写状态或追加 JSON 正文，避免异常处理器再次抛出异常，
@@ -62,14 +72,7 @@ public class SentinelSpringMvcBlockHandlerConfig {
             return null;
         }
 
-        /*
-         * Sentinel 拦截是预期中的高频保护行为，不能逐请求打印 WARN/ERROR。
-         * 否则流量越大、拦截越多，日志 IO 和采集压力越大，可能形成日志风暴。
-         * 生产监控应使用 Sentinel 指标或低基数的 Micrometer Counter；
-         * 如果确实需要日志，应在日志框架或监控层做采样、限频和聚合。
-         *
-         * 对外仅返回稳定的通用错误，不返回命中的规则对象、阈值、来源规则等内部信息。
-         */
+        // 对外仅返回稳定的通用错误，不返回命中的规则对象、阈值、来源规则等内部信息。
         // 保留现有 ResultWrapper 错误码和字段；明确 JSON 类型，防止原接口的文本类型影响序列化。
         // 拒绝结果不能被缓存；各类规则恢复时间不同，因此不编造统一的 Retry-After。
         return ResponseEntity.status(getHttpStatus(e))

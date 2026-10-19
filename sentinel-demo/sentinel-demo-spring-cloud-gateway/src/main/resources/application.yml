@@ -42,9 +42,28 @@ spring:
               uri: https://www.aliyun.com/
               predicates:
                 - Path=/product/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    # 熔断资源与网关限流的 routeId 分开，避免重复统计。
+                    name: aliyun_route_cb
+                    # 不配置 fallbackUri 时，将 /product/123 转给原下游的 /product/123/fallback。
+                    statusCodes: [500, 502, 503, 504]
             - id: httpbin_route
               uri: https://httpbin.org
               predicates:
-                - Path=/httpbin/**
+                - Path=/httpbin/{*segments}
               filters:
+                # CircuitBreaker 包装 RewritePath，降级时使用原路由捕获的路径变量。
+                - name: CircuitBreaker
+                  args:
+                    name: httpbin_route_cb
+                    # 此路由单独配置；segments 已包含开头的 /。
+                    fallbackUri: forward:/httpbin/fallback{segments}
+                    statusCodes: [500, 502, 503, 504]
                 - RewritePath=/httpbin/(?<segment>.*), /$\{segment}
+
+demo:
+  gateway:
+    # 未单独配置时在原请求路径后追加 /fallback；下游需提供对应接口，此项省略时默认值相同。
+    default-fallback-uri: forward:/{sentinelOriginalPath}/fallback
